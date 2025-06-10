@@ -48,6 +48,97 @@ This document outlines the complete implementation plan for building a productio
 
 ## Critical Information
 
+
+## URGENT: AUTOMATION DEBT CHORES
+
+**STOP: These chores MUST be completed before any new features. The current setup is not truly automated and would fail repeatability tests.**
+
+### Assessment: Current Automation Status
+- **Status**: PARTIALLY AUTOMATED ⚠️
+- **Repeatability Test**: WOULD FAIL ❌
+- **Risk**: Building more technical debt without fixing foundation
+
+### Chore 1: Fix Makefile Automation 🚨 CRITICAL
+**Problem**: Makefile contains multiple broken references and assumptions
+- References `kind/config.yaml` but we use `kind/config-simple.yaml`
+- Assumes `kind` is in PATH but we have `./kind-binary`
+- `install-deps` tries MacPorts with sudo (would hang)
+- No PATH management for downloaded tools in `~/homelab/`
+
+**Tasks**:
+- [ ] Update all file references to use correct names
+- [ ] Fix tool PATH issues throughout Makefile
+- [ ] Remove sudo dependencies from automation
+- [ ] Use project-local binaries consistently
+- [ ] Test `make init` on clean system
+
+### Chore 2: Tool Management Strategy 🔧 HIGH
+**Problem**: Inconsistent tool location and PATH handling
+- Tools downloaded to `~/homelab/` but not in system PATH
+- Every kubectl/helm/kind command needs manual PATH prefix
+- No version pinning or tool discovery
+
+**Tasks**:
+- [ ] Create `scripts/ensure-tools.sh` for tool downloads
+- [ ] Add tool wrapper scripts or PATH management
+- [ ] Pin tool versions in configuration
+- [ ] Test tool availability in all make targets
+
+### Chore 3: Clean Bootstrap Script 🧹 MEDIUM
+**Problem**: Bootstrap script has leftover heredoc syntax
+- Contains `EOF && chmod +x scripts/bootstrap.sh` at end
+- Would fail if run standalone
+- Contains emoji (against project standards)
+
+**Tasks**:
+- [ ] Remove leftover EOF line from bootstrap script
+- [ ] Remove all emojis from scripts
+- [ ] Test script runs independently
+- [ ] Validate all script permissions
+
+### Chore 4: Repeatability Testing 🧪 HIGH
+**Problem**: No validation that automation actually works
+- Cannot test `make init` without sudo prompts
+- No verification scripts for setup state
+- Missing dependency validation
+
+**Tasks**:
+- [ ] Create `make test-automation` target
+- [ ] Add dependency checking before operations
+- [ ] Test full rebuild cycle: `make clean && make init`
+- [ ] Validate cluster health checks
+
+### Chore 5: Documentation Accuracy 📝 MEDIUM
+**Problem**: Implementation plan claims 5-minute rebuilds but automation is broken
+- Documentation overpromises current capability
+- No actual timing measurements
+- Missing troubleshooting for common failures
+
+**Tasks**:
+- [ ] Update timing claims to reflect reality
+- [ ] Add troubleshooting section for automation failures
+- [ ] Document actual prerequisites and assumptions
+- [ ] Test and time full rebuild process
+
+### Definition of Done for Chores
+**Before moving to new features, we must achieve**:
+1. ✅ A new user can run `make init` without manual intervention
+2. ✅ `make rebuild` works reliably and is timed
+3. ✅ All tools are automatically downloaded and managed
+4. ✅ No sudo prompts in automation
+5. ✅ Bootstrap script runs cleanly standalone
+6. ✅ PATH issues are completely resolved
+
+**Test**: Someone should be able to:
+```bash
+ssh xenon
+cd ~/homelab
+make clean
+make init
+# Should result in working ArgoCD without any manual steps
+```
+
+---
 ### Access Credentials
 - **ArgoCD Admin Password**: `csDooGXxIKQ8c1Hf`
 - **ArgoCD URL**: https://localhost:8080 (via port-forward)
