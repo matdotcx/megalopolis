@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+.kube/
+
+# Secrets
+*.key
+*.pem
+*.crt
+*.p12
+.decrypted~*
+.sops.yaml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Build artifacts
+/dist/
+/build/
