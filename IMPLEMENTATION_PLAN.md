@@ -136,7 +136,7 @@ make test-automation
 
 ---
 ### Access Credentials
-- **ArgoCD Admin Password**: `csDooGXxIKQ8c1Hf`
+- **ArgoCD Admin Password**: ``
 - **ArgoCD URL**: https://localhost:8080 (via port-forward)
 - **Cluster Context**: `kind-homelab`
 
