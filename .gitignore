@@ -38,3 +38,6 @@ kubeconfig
 # Build artifacts
 /dist/
 /build/
+
+# Implementation plan (local working document)
+plan.md
