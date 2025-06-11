@@ -88,5 +88,3 @@ Falls back to Docker Desktop if Colima is not available.
 - **Docker not accessible**: Run `./scripts/check-docker.sh` to diagnose
 - **Colima installation**: Run `./scripts/setup-colima.sh` to install via MacPorts
 - **Resource issues**: Colima is configured with 4 CPU, 8GB RAM, 60GB disk
-
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#troubleshooting) for common issues and solutions.
