@@ -1,0 +1,47 @@
+# macOS Development VM Configuration
+name: "macos-dev"
+base_image: "macos-sequoia"
+description: "macOS development environment for iOS/macOS development"
+
+# VM Resources
+resources:
+  memory: "6144"  # 6GB RAM
+  disk: "60"      # 60GB disk
+  cpu: "4"        # 4 CPU cores
+
+# VM Settings
+settings:
+  # Enable SSH for remote access
+  ssh_enabled: true
+  
+  # Enable VNC for GUI access
+  vnc_enabled: true
+  vnc_port: "5900"
+  
+  # Enable hardware acceleration
+  hardware_acceleration: true
+  
+  # Auto-start VM on host boot
+  auto_start: false
+
+# Post-creation setup scripts
+post_setup:
+  # Commands to run after VM creation
+  commands:
+    - "echo 'Setting up development environment...'"
+    - "# Install Xcode command line tools"
+    - "xcode-select --install || true"
+    - "# Install Homebrew"
+    - '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true'
+    - "# Install common development tools"
+    - "brew install git node python3 || true"
+
+# Network configuration
+network:
+  mode: "bridged"
+  # Port forwarding rules (format: host_port:guest_port)
+  port_forwards:
+    - "2222:22"    # SSH
+    - "5900:5900"  # VNC
+    - "3000:3000"  # Development server
+    - "8080:8080"  # Alternative dev server

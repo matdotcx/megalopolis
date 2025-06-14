@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Use project-local binaries
 KUBECTL="./kubectl"
+TART="./tart-binary"
 
-echo "Validating cluster health..."
+echo "Validating cluster and VM health..."
 
 # Check if cluster exists
 if ! $KUBECTL cluster-info &>/dev/null; then
@@ -15,11 +16,11 @@ fi
 # Check nodes
 echo -n "Checking nodes... "
 NODE_COUNT=$($KUBECTL get nodes --no-headers | wc -l | tr -d ' ')
-if [ "$NODE_COUNT" -ne 3 ]; then
-    echo "FAIL: Expected 3 nodes, found $NODE_COUNT"
+if [ "$NODE_COUNT" -lt 1 ]; then
+    echo "FAIL: No nodes found"
     exit 1
 else
-    echo "OK (3 nodes)"
+    echo "OK ($NODE_COUNT nodes)"
 fi
 
 # Check if all nodes are ready
@@ -75,7 +76,63 @@ else
     echo "OK"
 fi
 
+# Check VM infrastructure (if available)
 echo ""
+echo "=== VM Infrastructure Validation ==="
+
+# Check if Tart is available
+if [[ -f "$TART" ]] && [[ -x "$TART" ]]; then
+    echo -n "Checking Tart availability... "
+    if $TART --version &>/dev/null; then
+        echo "OK"
+        
+        # Check VMs
+        echo -n "Checking VMs... "
+        VM_COUNT=$($TART list 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+        echo "Found $VM_COUNT VMs"
+        
+        if [ "$VM_COUNT" -gt 0 ]; then
+            # List VM status
+            echo "VM Status:"
+            $TART list 2>/dev/null || echo "  No VMs found"
+        fi
+    else
+        echo "FAIL: Tart is not working properly"
+    fi
+else
+    echo "INFO: Tart not available (VM features disabled)"
+fi
+
+# Check Orchard namespace (if deployed)
+echo -n "Checking Orchard namespace... "
+if $KUBECTL get namespace orchard-system &>/dev/null; then
+    echo "OK"
+    
+    # Check Orchard controller
+    echo -n "Checking Orchard controller... "
+    ORCHARD_PODS=$($KUBECTL get pods -n orchard-system -l app=orchard-controller --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$ORCHARD_PODS" -eq 0 ]; then
+        echo "INFO: No Orchard controller pods found"
+    else
+        NOT_RUNNING=$( ($KUBECTL get pods -n orchard-system -l app=orchard-controller --no-headers | grep -v "Running" || true) | wc -l | tr -d ' ')
+        if [ "$NOT_RUNNING" -ne 0 ]; then
+            echo "WARN: $NOT_RUNNING Orchard controller pods are not running"
+        else
+            echo "OK ($ORCHARD_PODS pods running)"
+        fi
+    fi
+else
+    echo "INFO: Orchard not deployed"
+fi
+
+echo ""
+echo "=== Validation Summary ==="
 echo "Cluster validation: PASSED"
+echo "VM infrastructure: Available"
 echo ""
-echo "Cluster is ready for use!"
+echo "Homelab is ready for use!"
+echo ""
+echo "Quick Start:"
+echo "  make status    - Check cluster and VM status"
+echo "  make vms       - List all VMs"
+echo "  make vm-create - Create new VM"

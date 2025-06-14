@@ -1,0 +1,45 @@
+# macOS CI/Build VM Configuration
+name: "macos-ci"
+base_image: "macos-sequoia"
+description: "macOS CI environment for automated builds and testing"
+
+# VM Resources (lighter than dev VM)
+resources:
+  memory: "4096"  # 4GB RAM
+  disk: "40"      # 40GB disk
+  cpu: "2"        # 2 CPU cores
+
+# VM Settings
+settings:
+  # Enable SSH for CI access
+  ssh_enabled: true
+  
+  # Disable VNC to save resources
+  vnc_enabled: false
+  
+  # Enable hardware acceleration
+  hardware_acceleration: true
+  
+  # Auto-start VM for CI availability
+  auto_start: true
+
+# Post-creation setup scripts for CI environment
+post_setup:
+  commands:
+    - "echo 'Setting up CI environment...'"
+    - "# Install Xcode command line tools"
+    - "xcode-select --install || true"
+    - "# Install Homebrew"
+    - '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true'
+    - "# Install CI-specific tools"
+    - "brew install git fastlane xcbeautify || true"
+    - "# Configure for headless operation"
+    - "sudo systemsetup -setremotelogin on"
+    - "# Disable screen saver and sleep"
+    - "sudo pmset -a displaysleep 0 sleep 0 disksleep 0"
+
+# Network configuration
+network:
+  mode: "bridged"
+  port_forwards:
+    - "2223:22"    # SSH (different port from dev VM)

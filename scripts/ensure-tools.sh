@@ -85,11 +85,15 @@ echo ""
 KUBECTL_VERSION="v1.33.1"
 HELM_VERSION="v3.18.2"
 KIND_VERSION="v0.23.0"
+TART_VERSION="latest"
+ORCHARD_VERSION="latest"
 
 # Tool paths
 KUBECTL_BIN="./kubectl"
 HELM_BIN="./helm"
 KIND_BIN="./kind-binary"
+TART_BIN="./tart-binary"
+ORCHARD_BIN="./orchard-binary"
 
 # Architecture detection
 ARCH=$(uname -m)
@@ -139,6 +143,108 @@ else
     echo "kind already exists."
 fi
 
+# Install/Update Tart using MacPorts (macOS only)
+if [[ "$OS" == "darwin" ]]; then
+    if [ ! -f "$TART_BIN" ]; then
+        echo "tart not found. Checking for existing installation..."
+        
+        # Check if tart is available in PATH first
+        if command -v tart &> /dev/null; then
+            echo "Found existing tart installation, creating symlink..."
+            ln -sf "$(which tart)" "$TART_BIN"
+            echo "tart linked successfully."
+        elif command -v port &> /dev/null; then
+            echo "MacPorts found. Attempting to install tart..."
+            echo "Note: This requires sudo privileges. If you don't have sudo access,"
+            echo "you can install tart manually and rerun this script."
+            
+            # Try to install tart via MacPorts
+            if sudo -n port install tart 2>/dev/null; then
+                echo "tart installed via MacPorts successfully."
+                if command -v tart &> /dev/null; then
+                    ln -sf "$(which tart)" "$TART_BIN"
+                    echo "tart linked successfully."
+                fi
+            else
+                echo "WARNING: Could not install tart via MacPorts (sudo required)."
+                echo "Please install tart manually:"
+                echo "  sudo port install tart"
+                echo "Or install from GitHub: https://github.com/cirruslabs/tart"
+                
+                # Create a helpful wrapper script
+                cat > "$TART_BIN" << 'EOF'
+#!/bin/bash
+echo "ERROR: Tart is not installed."
+echo "Please install tart via MacPorts:"
+echo "  sudo port install tart"
+echo "Or from GitHub: https://github.com/cirruslabs/tart"
+echo "Then run 'make ensure-tools' again."
+exit 1
+EOF
+                chmod +x "$TART_BIN"
+            fi
+        else
+            echo "WARNING: Neither tart nor MacPorts found."
+            echo "Please install tart manually:"
+            echo "  - Via MacPorts: sudo port install tart"
+            echo "  - Via GitHub: https://github.com/cirruslabs/tart"
+            
+            # Create a helpful wrapper script
+            cat > "$TART_BIN" << 'EOF'
+#!/bin/bash
+echo "ERROR: Tart is not installed."
+echo "Please install tart via MacPorts:"
+echo "  sudo port install tart"
+echo "Or from GitHub: https://github.com/cirruslabs/tart"
+echo "Then run 'make ensure-tools' again."
+exit 1
+EOF
+            chmod +x "$TART_BIN"
+        fi
+    else
+        echo "tart already exists."
+    fi
+    
+    # Install/Update Orchard CLI
+    if [ ! -f "$ORCHARD_BIN" ]; then
+        echo "orchard not found. Downloading latest version..."
+        
+        # Download Orchard CLI from GitHub releases
+        ORCHARD_DOWNLOAD_URL="https://github.com/cirruslabs/orchard/releases/latest/download/orchard-${OS}-${ARCH}"
+        
+        if curl -fsSL "$ORCHARD_DOWNLOAD_URL" -o "$ORCHARD_BIN"; then
+            chmod +x "$ORCHARD_BIN"
+            echo "orchard downloaded successfully."
+        else
+            echo "WARNING: Failed to download orchard CLI. VM management features may be limited."
+            # Create a dummy script that shows a helpful error
+            cat > "$ORCHARD_BIN" << 'EOF'
+#!/bin/bash
+echo "ERROR: Orchard CLI not available."
+echo "VM management requires Orchard to be installed."
+echo "Please install manually from: https://github.com/cirruslabs/orchard"
+exit 1
+EOF
+            chmod +x "$ORCHARD_BIN"
+        fi
+    else
+        echo "orchard already exists."
+    fi
+else
+    echo "Tart/Orchard installation skipped (macOS only features)."
+    # Create dummy binaries for non-macOS systems
+    for tool in "$TART_BIN" "$ORCHARD_BIN"; do
+        if [ ! -f "$tool" ]; then
+            cat > "$tool" << 'EOF'
+#!/bin/bash
+echo "ERROR: This tool is only available on macOS."
+exit 1
+EOF
+            chmod +x "$tool"
+        fi
+    done
+fi
+
 # Verify tool versions
 echo ""
 echo "Tool versions:"
@@ -148,6 +254,13 @@ echo -n "helm: "
 $HELM_BIN version --short 2>/dev/null || echo "Error checking version"
 echo -n "kind: "
 $KIND_BIN version 2>/dev/null || echo "Error checking version"
+
+if [[ "$OS" == "darwin" ]]; then
+    echo -n "tart: "
+    $TART_BIN --version 2>/dev/null || echo "Not available"
+    echo -n "orchard: "
+    $ORCHARD_BIN --version 2>/dev/null || echo "Not available"
+fi
 
 echo ""
 echo "All tools are ready."
