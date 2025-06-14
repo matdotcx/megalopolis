@@ -1,4 +1,4 @@
-.PHONY: help init up down rebuild clean status test-automation validate vms vm-create vm-connect vm-rebuild vm-status
+.PHONY: help init up down rebuild clean status test-automation validate vms vm-create vm-connect vm-rebuild vm-status comprehensive-status auto-provision vm-health deploy-full monitoring
 
 CLUSTER_NAME := homelab
 KUBECONFIG := ~/.kube/config
@@ -133,3 +133,64 @@ vm-connect: ## SSH/VNC to VM
 vm-rebuild: ## Rebuild VMs from base images
 	@echo "Rebuilding VMs from base images..."
 	./scripts/setup-vms.sh rebuild
+
+comprehensive-status: ## Show detailed system status dashboard
+	./scripts/comprehensive-status.sh
+
+auto-provision: ## Automatically provision VMs based on resource availability
+	./scripts/auto-provision-vms.sh
+
+vm-health: ## Check and repair VM health
+	@echo "Checking VM health and connectivity..."
+	@if command -v ./tart-binary >/dev/null 2>&1; then \
+		./tart-binary list 2>/dev/null | tail -n +2 | while read -r line; do \
+			vm_name=$$(echo "$$line" | awk '{print $$1}'); \
+			vm_status=$$(echo "$$line" | awk '{print $$2}'); \
+			echo "Checking $$vm_name ($$vm_status)..."; \
+			if [ "$$vm_status" = "running" ]; then \
+				vm_ip=$$(./tart-binary ip "$$vm_name" 2>/dev/null || echo ""); \
+				if [ -n "$$vm_ip" ]; then \
+					echo "  IP: $$vm_ip"; \
+					timeout 3 ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no "admin@$$vm_ip" "echo 'SSH OK'" 2>/dev/null && echo "  SSH: ✅ OK" || echo "  SSH: ❌ Failed"; \
+				else \
+					echo "  IP: Not available"; \
+				fi; \
+			fi; \
+		done; \
+	else \
+		echo "Tart not available"; \
+	fi
+
+deploy-full: ## Full deployment optimized for high-resource systems (128GB RAM)
+	@echo "🚀 Starting full high-resource deployment for 128GB system..."
+	@echo "This will:"
+	@echo "  - Ensure all tools are installed"
+	@echo "  - Create/verify Kind cluster"
+	@echo "  - Bootstrap core services (ArgoCD, Orchard)"
+	@echo "  - Auto-provision VMs based on available resources"
+	@echo "  - Display comprehensive status"
+	@echo ""
+	@read -p "Continue? [y/N] " -n 1 -r; echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		make ensure-tools && \
+		make init && \
+		make auto-provision && \
+		echo "" && \
+		echo "🎉 Full deployment completed!" && \
+		make comprehensive-status; \
+	else \
+		echo "Deployment cancelled."; \
+	fi
+
+monitoring: ## Start continuous monitoring (runs in background)
+	@echo "Starting continuous monitoring..."
+	@echo "Logs will be written to /tmp/megalopolis-*.log"
+	@(while true; do \
+		date >> /tmp/megalopolis-monitoring.log; \
+		./scripts/comprehensive-status.sh >> /tmp/megalopolis-status.log 2>&1; \
+		./scripts/setup-vms.sh list >> /tmp/megalopolis-vms.log 2>&1; \
+		sleep 300; \
+	done) &
+	@echo "Monitoring started in background (PID: $$!)"
+	@echo "To stop: pkill -f 'megalopolis.*monitoring'"
+	@echo "View logs: tail -f /tmp/megalopolis-status.log"

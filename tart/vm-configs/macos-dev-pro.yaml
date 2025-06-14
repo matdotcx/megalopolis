@@ -1,0 +1,65 @@
+# High-Performance macOS Development VM Configuration
+# Optimized for 128GB RAM systems
+name: "macos-dev-pro"
+base_image: "macos-sequoia"
+description: "High-performance macOS development environment (16GB RAM, 8 cores)"
+
+# VM Resources - Scaled for high-resource systems
+resources:
+  memory: "16384"  # 16GB RAM
+  disk: "120"      # 120GB disk
+  cpu: "8"         # 8 CPU cores
+
+# VM Settings
+settings:
+  # Enable SSH for remote access
+  ssh_enabled: true
+  
+  # Enable VNC for GUI access
+  vnc_enabled: true
+  vnc_port: "5901"
+  
+  # Enable hardware acceleration
+  hardware_acceleration: true
+  
+  # Auto-start VM on host boot
+  auto_start: true
+
+# Post-creation setup scripts
+post_setup:
+  # Commands to run after VM creation
+  commands:
+    - "echo 'Setting up high-performance development environment...'"
+    - "# Install Xcode command line tools"
+    - "xcode-select --install || true"
+    - "# Install Homebrew"
+    - '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true'
+    - "# Install development tools suite"
+    - "brew install git node python3 ruby golang rust swift || true"
+    - "# Install iOS development tools"
+    - "brew install fastlane xcbeautify ios-deploy carthage cocoapods || true"
+    - "# Install development IDEs and tools"
+    - "brew install --cask visual-studio-code xcode android-studio || true"
+    - "# Configure for performance"
+    - "sudo sysctl -w vm.swappiness=10 || true"
+    - "# Setup development directories"
+    - "mkdir -p ~/Development/{iOS,macOS,Flutter,React,Node,Python}"
+    - "# Configure Git"
+    - "git config --global core.autocrlf false"
+    - "git config --global core.filemode false"
+    - "# Setup SSH keys directory"
+    - "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+
+# Network configuration
+network:
+  mode: "bridged"
+  # Port forwarding rules (format: host_port:guest_port)
+  port_forwards:
+    - "2224:22"    # SSH
+    - "5901:5901"  # VNC
+    - "3000:3000"  # React dev server
+    - "8080:8080"  # Alternative dev server
+    - "9229:9229"  # Node.js debugger
+    - "5000:5000"  # Flask/Python dev server
+    - "8000:8000"  # Django dev server
+    - "4200:4200"  # Angular dev server
