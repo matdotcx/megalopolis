@@ -143,7 +143,7 @@ else
     echo "kind already exists."
 fi
 
-# Install/Update Tart using MacPorts (macOS only)
+# Install/Update Tart (macOS only)
 if [[ "$OS" == "darwin" ]]; then
     if [ ! -f "$TART_BIN" ]; then
         echo "tart not found. Checking for existing installation..."
@@ -153,53 +153,66 @@ if [[ "$OS" == "darwin" ]]; then
             echo "Found existing tart installation, creating symlink..."
             ln -sf "$(which tart)" "$TART_BIN"
             echo "tart linked successfully."
-        elif command -v port &> /dev/null; then
-            echo "MacPorts found. Attempting to install tart..."
-            echo "Note: This requires sudo privileges. If you don't have sudo access,"
-            echo "you can install tart manually and rerun this script."
+        elif [ -f "/Applications/tart.app/Contents/MacOS/tart" ]; then
+            echo "Found tart.app in Applications, creating symlink..."
+            ln -sf "/Applications/tart.app/Contents/MacOS/tart" "$TART_BIN"
+            echo "tart linked successfully."
+        else
+            echo "Tart not found. Installing from GitHub releases..."
+            echo "This will download and install Tart to /Applications/"
             
-            # Try to install tart via MacPorts
-            if sudo -n port install tart 2>/dev/null; then
-                echo "tart installed via MacPorts successfully."
-                if command -v tart &> /dev/null; then
-                    ln -sf "$(which tart)" "$TART_BIN"
-                    echo "tart linked successfully."
+            # Create temporary directory
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            
+            echo "Downloading Tart..."
+            if curl -LO https://github.com/cirruslabs/tart/releases/latest/download/tart.tar.gz; then
+                echo "Extracting Tart..."
+                tar -xzf tart.tar.gz
+                
+                echo "Installing Tart to /Applications/ (requires sudo)..."
+                if sudo mv tart.app /Applications/; then
+                    echo "Creating command line symlink..."
+                    sudo ln -sf /Applications/tart.app/Contents/MacOS/tart /usr/local/bin/tart
+                    
+                    # Create local symlink
+                    ln -sf /usr/local/bin/tart "$TART_BIN"
+                    
+                    echo "✅ Tart installed successfully!"
+                else
+                    echo "❌ Failed to install Tart (sudo required)"
+                    # Create helper script
+                    cat > "$TART_BIN" << 'EOF'
+#!/bin/bash
+echo "ERROR: Tart installation failed."
+echo "Please install manually:"
+echo "  curl -LO https://github.com/cirruslabs/tart/releases/latest/download/tart.tar.gz"
+echo "  tar -xzf tart.tar.gz"
+echo "  sudo mv tart.app /Applications/"
+echo "  sudo ln -sf /Applications/tart.app/Contents/MacOS/tart /usr/local/bin/tart"
+exit 1
+EOF
+                    chmod +x "$TART_BIN"
                 fi
             else
-                echo "WARNING: Could not install tart via MacPorts (sudo required)."
-                echo "Please install tart manually:"
-                echo "  sudo port install tart"
-                echo "Or install from GitHub: https://github.com/cirruslabs/tart"
-                
-                # Create a helpful wrapper script
+                echo "❌ Failed to download Tart"
+                # Create helper script
                 cat > "$TART_BIN" << 'EOF'
 #!/bin/bash
-echo "ERROR: Tart is not installed."
-echo "Please install tart via MacPorts:"
-echo "  sudo port install tart"
-echo "Or from GitHub: https://github.com/cirruslabs/tart"
-echo "Then run 'make ensure-tools' again."
+echo "ERROR: Tart download failed."
+echo "Please install manually:"
+echo "  curl -LO https://github.com/cirruslabs/tart/releases/latest/download/tart.tar.gz"
+echo "  tar -xzf tart.tar.gz" 
+echo "  sudo mv tart.app /Applications/"
+echo "  sudo ln -sf /Applications/tart.app/Contents/MacOS/tart /usr/local/bin/tart"
 exit 1
 EOF
                 chmod +x "$TART_BIN"
             fi
-        else
-            echo "WARNING: Neither tart nor MacPorts found."
-            echo "Please install tart manually:"
-            echo "  - Via MacPorts: sudo port install tart"
-            echo "  - Via GitHub: https://github.com/cirruslabs/tart"
             
-            # Create a helpful wrapper script
-            cat > "$TART_BIN" << 'EOF'
-#!/bin/bash
-echo "ERROR: Tart is not installed."
-echo "Please install tart via MacPorts:"
-echo "  sudo port install tart"
-echo "Or from GitHub: https://github.com/cirruslabs/tart"
-echo "Then run 'make ensure-tools' again."
-exit 1
-EOF
-            chmod +x "$TART_BIN"
+            # Cleanup
+            cd /
+            rm -rf "$TEMP_DIR"
         fi
     else
         echo "tart already exists."

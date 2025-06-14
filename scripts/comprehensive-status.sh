@@ -267,7 +267,7 @@ main() {
         
     else
         echo -e "VM Infrastructure: ${ICON_WARNING} Tart not available"
-        echo "Install Tart: sudo port install tart"
+        echo "Install Tart: make ensure-tools"
     fi
     
     # Core Services Status

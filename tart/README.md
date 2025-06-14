@@ -30,9 +30,14 @@ M3 Mac Host
 
 ## Prerequisites
 
-1. **Tart Installation** (via MacPorts):
+1. **Tart Installation** (via GitHub releases):
    ```bash
-   sudo port install tart
+   curl -LO https://github.com/cirruslabs/tart/releases/latest/download/tart.tar.gz && tar -xzf tart.tar.gz && sudo mv tart.app /Applications/ && sudo ln -sf /Applications/tart.app/Contents/MacOS/tart /usr/local/bin/tart && rm tart.tar.gz
+   ```
+   
+   Or let Megalopolis install it automatically:
+   ```bash
+   make ensure-tools
    ```
 
 2. **Base Images**: 
