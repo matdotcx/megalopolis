@@ -41,3 +41,9 @@ kubeconfig
 
 # Implementation plan (local working document)
 plan.md
+# Binaries downloaded by ensure-tools.sh
+tart-binary
+orchard-binary
+*.dSYM/
+*.so
+*.dylib

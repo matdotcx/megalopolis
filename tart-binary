@@ -1,7 +1,0 @@
-#!/bin/bash
-echo "ERROR: Tart is not installed."
-echo "Please install tart via MacPorts:"
-echo "  sudo port install tart"
-echo "Or from GitHub: https://github.com/cirruslabs/tart"
-echo "Then run 'make ensure-tools' again."
-exit 1
