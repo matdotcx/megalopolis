@@ -47,6 +47,27 @@ get_vm_count() {
     echo "${running_vms} running / ${total_vms} total"
 }
 
+# Function to get enhanced VM status
+get_vm_detailed_status() {
+    local vm_name="$1"
+    
+    # Check if VM readiness monitor is available
+    if [[ -x "${PROJECT_ROOT}/scripts/vm-readiness-monitor.sh" ]]; then
+        local detailed_status
+        detailed_status=$("${PROJECT_ROOT}/scripts/vm-readiness-monitor.sh" status "$vm_name" 2>/dev/null || echo "unknown")
+        echo "$detailed_status"
+    else
+        # Fallback to basic status
+        if ${TART} list 2>/dev/null | grep -q "^${vm_name}[[:space:]].*running"; then
+            echo "running"
+        elif ${TART} list 2>/dev/null | grep -q "^${vm_name}[[:space:]]"; then
+            echo "stopped"
+        else
+            echo "not_found"
+        fi
+    fi
+}
+
 # Generate JSON status
 generate_status() {
     echo "{"
@@ -118,29 +139,71 @@ generate_status() {
     network_status=$(check_service_status "network" "docker network ls | grep -q kind")
     echo '    "network": {"status": "'${network_status}'", "details": "Docker networking"},'
     
-    # Virtual Machines
-    macos_dev_status="unhealthy"
-    if ${TART} list 2>/dev/null | grep -q "^macos-dev.*running"; then
-        macos_dev_status="healthy"
-        macos_dev_details="Running"
-    elif ${TART} list 2>/dev/null | grep -q "^macos-dev"; then
-        macos_dev_status="warning"
-        macos_dev_details="Stopped"
-    else
-        macos_dev_details="Not found"
-    fi
+    # Virtual Machines with enhanced status
+    macos_dev_detailed=$(get_vm_detailed_status "macos-dev")
+    case "$macos_dev_detailed" in
+        "ready")
+            macos_dev_status="healthy"
+            macos_dev_details="Ready"
+            ;;
+        "ssh-pending")
+            macos_dev_status="warning"
+            macos_dev_details="SSH pending"
+            ;;
+        "booting")
+            macos_dev_status="warning"
+            macos_dev_details="Booting"
+            ;;
+        "running")
+            macos_dev_status="warning"
+            macos_dev_details="Running (status unknown)"
+            ;;
+        "stopped")
+            macos_dev_status="warning"
+            macos_dev_details="Stopped"
+            ;;
+        "not_found")
+            macos_dev_status="unhealthy"
+            macos_dev_details="Not found"
+            ;;
+        *)
+            macos_dev_status="unhealthy"
+            macos_dev_details="Unknown"
+            ;;
+    esac
     echo '    "macos-dev": {"status": "'${macos_dev_status}'", "details": "'${macos_dev_details}'"},'
     
-    macos_ci_status="unhealthy"
-    if ${TART} list 2>/dev/null | grep -q "^macos-ci.*running"; then
-        macos_ci_status="healthy"
-        macos_ci_details="Running"
-    elif ${TART} list 2>/dev/null | grep -q "^macos-ci"; then
-        macos_ci_status="warning"
-        macos_ci_details="Stopped"
-    else
-        macos_ci_details="Not found"
-    fi
+    macos_ci_detailed=$(get_vm_detailed_status "macos-ci")
+    case "$macos_ci_detailed" in
+        "ready")
+            macos_ci_status="healthy"
+            macos_ci_details="Ready"
+            ;;
+        "ssh-pending")
+            macos_ci_status="warning"
+            macos_ci_details="SSH pending"
+            ;;
+        "booting")
+            macos_ci_status="warning"
+            macos_ci_details="Booting"
+            ;;
+        "running")
+            macos_ci_status="warning"
+            macos_ci_details="Running (status unknown)"
+            ;;
+        "stopped")
+            macos_ci_status="warning"
+            macos_ci_details="Stopped"
+            ;;
+        "not_found")
+            macos_ci_status="unhealthy"
+            macos_ci_details="Not found"
+            ;;
+        *)
+            macos_ci_status="unhealthy"
+            macos_ci_details="Unknown"
+            ;;
+    esac
     echo '    "macos-ci": {"status": "'${macos_ci_status}'", "details": "'${macos_ci_details}'"},'
     
     # Total VMs

@@ -21,14 +21,14 @@ test_vm() {
     echo "Testing VM: ${vm_name}"
     
     # Check if VM exists
-    if ! ${TART} list 2>/dev/null | grep -q "^${vm_name}"; then
+    if ! ${TART} list 2>/dev/null | grep -q "^${vm_name}[[:space:]]"; then
         echo "  ❌ VM ${vm_name} does not exist"
         ((FAILED_TESTS++))
         return 1
     fi
     
     # Check VM status
-    local vm_status=$(${TART} list 2>/dev/null | grep "^${vm_name}" | awk '{print $2}')
+    local vm_status=$(${TART} list 2>/dev/null | grep "^${vm_name}[[:space:]]" | awk '{print $2}')
     if [ "${vm_status}" != "running" ]; then
         echo "  ❌ VM ${vm_name} is not running (status: ${vm_status})"
         ((FAILED_TESTS++))
