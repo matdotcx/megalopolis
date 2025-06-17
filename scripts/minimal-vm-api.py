@@ -57,10 +57,13 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
     def handle_vms(self):
         """Handle /vms endpoint"""
         try:
-            # Get project root directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(script_dir)
-            tart_bin = os.path.join(project_root, "tart-binary")
+            # Get tart binary path (container vs local)
+            if os.path.exists("/app/bin/tart-binary"):
+                tart_bin = "/app/bin/tart-binary"
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(script_dir)
+                tart_bin = os.path.join(project_root, "tart-binary")
             
             # Run tart list command
             result = subprocess.run(
@@ -109,10 +112,13 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
     def handle_vm_detail(self, vm_name):
         """Handle /vms/{name} endpoint"""
         try:
-            # Get project root directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(script_dir)
-            tart_bin = os.path.join(project_root, "tart-binary")
+            # Get tart binary path (container vs local)
+            if os.path.exists("/app/bin/tart-binary"):
+                tart_bin = "/app/bin/tart-binary"
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(script_dir)
+                tart_bin = os.path.join(project_root, "tart-binary")
             
             # Run tart list command
             result = subprocess.run(
@@ -167,10 +173,13 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
     def handle_vm_start(self, vm_name):
         """Handle POST /vms/{name}/start endpoint"""
         try:
-            # Get project root directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(script_dir)
-            tart_bin = os.path.join(project_root, "tart-binary")
+            # Get tart binary path (container vs local)
+            if os.path.exists("/app/bin/tart-binary"):
+                tart_bin = "/app/bin/tart-binary"
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(script_dir)
+                tart_bin = os.path.join(project_root, "tart-binary")
             
             # First check if VM exists
             list_result = subprocess.run(
@@ -231,10 +240,13 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
     def handle_vm_stop(self, vm_name):
         """Handle POST /vms/{name}/stop endpoint"""
         try:
-            # Get project root directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(script_dir)
-            tart_bin = os.path.join(project_root, "tart-binary")
+            # Get tart binary path (container vs local)
+            if os.path.exists("/app/bin/tart-binary"):
+                tart_bin = "/app/bin/tart-binary"
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(script_dir)
+                tart_bin = os.path.join(project_root, "tart-binary")
             
             # First check if VM exists
             list_result = subprocess.run(
