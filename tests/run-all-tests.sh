@@ -77,11 +77,20 @@ check_tool "kind" "${PROJECT_ROOT}/kind-binary"
 
 echo ""
 
+# Run platform compatibility tests first
+run_test "Platform Compatibility" "${SCRIPT_DIR}/test-platform-compatibility.sh"
+
 # Run infrastructure state test
 run_test "Infrastructure State Check" "${SCRIPT_DIR}/test-infrastructure-state.sh"
 
 # Run Kubernetes tests
 run_test "Kubernetes Services" "${SCRIPT_DIR}/test-kubernetes-services.sh"
+
+# Run VM operator tests
+run_test "VM Operator" "${SCRIPT_DIR}/test-vm-operator.sh"
+
+# Run VM readiness tests
+run_test "VM Readiness" "${SCRIPT_DIR}/test-vm-readiness.sh"
 
 # Run VM connectivity tests
 run_test "VM Connectivity" "${SCRIPT_DIR}/test-vm-connectivity.sh"
