@@ -242,10 +242,140 @@ echo "=== Minimal VM API Test Suite ==="
 echo "Testing minimal VM operator HTTP API..."
 echo ""
 
+# Test POST /vms/{name}/start endpoint
+test_vm_start_endpoint() {
+    log_info "=== Testing POST /vms/{name}/start Endpoint ==="
+    
+    # Get a stopped VM name from /vms endpoint
+    local response
+    response=$(curl -s "${API_URL}/vms")
+    local stopped_vm
+    stopped_vm=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for vm in data:
+    if vm['status'] == 'stopped':
+        print(vm['name'])
+        break
+" 2>/dev/null)
+    
+    if [ -z "$stopped_vm" ]; then
+        log_warn "⚠️  No stopped VMs available for testing start endpoint"
+        ((PASSED_TESTS++))
+        return 0
+    fi
+    
+    log_info "Testing start operation with VM: $stopped_vm"
+    
+    # Test 1: Start endpoint accepts POST
+    local start_status
+    start_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/vms/$stopped_vm/start" || echo "000")
+    
+    if [ "$start_status" = "200" ] || [ "$start_status" = "202" ]; then
+        log_info "✅ Start endpoint responds with success status ($start_status)"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Start endpoint failed - Status: $start_status"
+        ((FAILED_TESTS++))
+    fi
+    
+    # Test 2: Start endpoint returns JSON response
+    local start_response
+    start_response=$(curl -s -X POST "${API_URL}/vms/$stopped_vm/start" || echo "")
+    
+    if echo "$start_response" | python3 -m json.tool >/dev/null 2>&1; then
+        log_info "✅ Start endpoint returns valid JSON"
+        log_info "   Response: $start_response"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Start endpoint returns invalid JSON"
+        log_error "   Response: $start_response"
+        ((FAILED_TESTS++))
+    fi
+    
+    # Test 3: Starting non-existent VM returns 404
+    local nonexist_status
+    nonexist_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/vms/non-existent-vm/start" || echo "000")
+    
+    if [ "$nonexist_status" = "404" ]; then
+        log_info "✅ Non-existent VM start returns 404"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Non-existent VM start should return 404, got: $nonexist_status"
+        ((FAILED_TESTS++))
+    fi
+}
+
+# Test POST /vms/{name}/stop endpoint  
+test_vm_stop_endpoint() {
+    log_info "=== Testing POST /vms/{name}/stop Endpoint ==="
+    
+    # Get a running VM name from /vms endpoint
+    local response
+    response=$(curl -s "${API_URL}/vms")
+    local running_vm
+    running_vm=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for vm in data:
+    if vm['status'] == 'running':
+        print(vm['name'])
+        break
+" 2>/dev/null)
+    
+    if [ -z "$running_vm" ]; then
+        log_warn "⚠️  No running VMs available for testing stop endpoint"
+        ((PASSED_TESTS++))
+        return 0
+    fi
+    
+    log_info "Testing stop operation with VM: $running_vm"
+    
+    # Test 1: Stop endpoint accepts POST
+    local stop_status
+    stop_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/vms/$running_vm/stop" || echo "000")
+    
+    if [ "$stop_status" = "200" ] || [ "$stop_status" = "202" ]; then
+        log_info "✅ Stop endpoint responds with success status ($stop_status)"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Stop endpoint failed - Status: $stop_status"
+        ((FAILED_TESTS++))
+    fi
+    
+    # Test 2: Stop endpoint returns JSON response
+    local stop_response
+    stop_response=$(curl -s -X POST "${API_URL}/vms/$running_vm/stop" || echo "")
+    
+    if echo "$stop_response" | python3 -m json.tool >/dev/null 2>&1; then
+        log_info "✅ Stop endpoint returns valid JSON"
+        log_info "   Response: $stop_response"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Stop endpoint returns invalid JSON"
+        log_error "   Response: $stop_response"
+        ((FAILED_TESTS++))
+    fi
+    
+    # Test 3: Stopping non-existent VM returns 404
+    local nonexist_status
+    nonexist_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/vms/non-existent-vm/stop" || echo "000")
+    
+    if [ "$nonexist_status" = "404" ]; then
+        log_info "✅ Non-existent VM stop returns 404"
+        ((PASSED_TESTS++))
+    else
+        log_error "❌ Non-existent VM stop should return 404, got: $nonexist_status"
+        ((FAILED_TESTS++))
+    fi
+}
+
 check_api_running
 test_health_endpoint
 test_vms_endpoint
 test_vm_detail_endpoint
+test_vm_start_endpoint
+test_vm_stop_endpoint
 
 echo ""
 echo "=== Test Summary ==="

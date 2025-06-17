@@ -28,6 +28,17 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404, "Endpoint not found")
     
+    def do_POST(self):
+        """Handle POST requests"""
+        if self.path.startswith('/vms/') and self.path.endswith('/start'):
+            vm_name = self.path[5:-6]  # Remove '/vms/' prefix and '/start' suffix
+            self.handle_vm_start(vm_name)
+        elif self.path.startswith('/vms/') and self.path.endswith('/stop'):
+            vm_name = self.path[5:-5]  # Remove '/vms/' prefix and '/stop' suffix
+            self.handle_vm_stop(vm_name)
+        else:
+            self.send_error(404, "Endpoint not found")
+    
     def handle_health(self):
         """Handle /health endpoint"""
         response = {
@@ -150,6 +161,138 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
             self.send_error(504, "Tart command timed out")
         except subprocess.CalledProcessError as e:
             self.send_error(500, f"Tart command failed: {e}")
+        except Exception as e:
+            self.send_error(500, f"Internal server error: {e}")
+    
+    def handle_vm_start(self, vm_name):
+        """Handle POST /vms/{name}/start endpoint"""
+        try:
+            # Get project root directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            tart_bin = os.path.join(project_root, "tart-binary")
+            
+            # First check if VM exists
+            list_result = subprocess.run(
+                [tart_bin, "list"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            vm_exists = False
+            if list_result.returncode == 0 and list_result.stdout.strip():
+                lines = list_result.stdout.strip().split('\n')
+                for line in lines:
+                    if line.startswith('Source'):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] == vm_name:
+                        vm_exists = True
+                        break
+            
+            if not vm_exists:
+                self.send_error(404, f"VM '{vm_name}' not found")
+                return
+            
+            # Start the VM
+            start_result = subprocess.run(
+                [tart_bin, "run", vm_name, "--no-audio"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if start_result.returncode == 0:
+                response = {
+                    "status": "success",
+                    "message": f"VM '{vm_name}' start command issued",
+                    "vm_name": vm_name,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+                self.send_response(200)
+            else:
+                response = {
+                    "status": "error", 
+                    "message": f"Failed to start VM '{vm_name}': {start_result.stderr.strip()}",
+                    "vm_name": vm_name,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+                self.send_response(500)
+            
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(response, indent=2).encode())
+            
+        except subprocess.TimeoutExpired:
+            self.send_error(504, "VM start command timed out")
+        except Exception as e:
+            self.send_error(500, f"Internal server error: {e}")
+    
+    def handle_vm_stop(self, vm_name):
+        """Handle POST /vms/{name}/stop endpoint"""
+        try:
+            # Get project root directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            tart_bin = os.path.join(project_root, "tart-binary")
+            
+            # First check if VM exists
+            list_result = subprocess.run(
+                [tart_bin, "list"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            vm_exists = False
+            if list_result.returncode == 0 and list_result.stdout.strip():
+                lines = list_result.stdout.strip().split('\n')
+                for line in lines:
+                    if line.startswith('Source'):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] == vm_name:
+                        vm_exists = True
+                        break
+            
+            if not vm_exists:
+                self.send_error(404, f"VM '{vm_name}' not found")
+                return
+            
+            # Stop the VM
+            stop_result = subprocess.run(
+                [tart_bin, "stop", vm_name],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if stop_result.returncode == 0:
+                response = {
+                    "status": "success",
+                    "message": f"VM '{vm_name}' stop command issued",
+                    "vm_name": vm_name,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+                self.send_response(200)
+            else:
+                response = {
+                    "status": "error",
+                    "message": f"Failed to stop VM '{vm_name}': {stop_result.stderr.strip()}",
+                    "vm_name": vm_name,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+                self.send_response(500)
+            
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(response, indent=2).encode())
+            
+        except subprocess.TimeoutExpired:
+            self.send_error(504, "VM stop command timed out")
         except Exception as e:
             self.send_error(500, f"Internal server error: {e}")
     
