@@ -1,0 +1,15 @@
+Megalopolis Test Report
+=======================
+Date: Tue 17 Jun 2025 14:18:17 BST
+Duration: 7 seconds
+
+Test Results:
+- Total Tests: 4
+- Passed: 1
+- Failed: 3
+
+Infrastructure Summary:
+- Kubernetes Cluster: Running
+- VMs Running: 0
+0
+

@@ -4,7 +4,7 @@
 base_images:
   # macOS Sequoia base image
   macos-sequoia:
-    source: "ghcr.io/cirruslabs/macos-sequoia:latest"
+    source: "ghcr.io/cirruslabs/macos-sequoia-base:latest"
     description: "macOS Sequoia base image for development"
     arch: "arm64"
     recommended_memory: "4096"

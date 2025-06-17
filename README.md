@@ -30,6 +30,12 @@ make validate
 - `make clean` - Remove cluster, VMs, and clean up
 - `make test-automation` - Test the full automation cycle with timing
 
+### Status Dashboard 🏙️
+- `make dashboard` - Launch web status dashboard (manual)
+- Automatically launched after `make init` and `make deploy-full`
+- Visit http://localhost:8090 for real-time infrastructure monitoring
+- Shows ✅/⚠️/❌ status for all services with auto-refresh
+
 ### VM Management
 - `make vms` - List all virtual machines
 - `make vm-create VM_NAME=name VM_CONFIG=config.yaml` - Create new VM from template

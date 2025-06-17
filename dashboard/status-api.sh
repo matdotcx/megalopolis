@@ -1,0 +1,183 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Tool paths
+KUBECTL="${PROJECT_ROOT}/kubectl"
+TART="${PROJECT_ROOT}/tart-binary"
+KIND="${PROJECT_ROOT}/kind-binary"
+
+# Function to check service status
+check_service_status() {
+    local service_name="$1"
+    local check_command="$2"
+    
+    if eval "$check_command" &>/dev/null; then
+        echo "healthy"
+    else
+        echo "unhealthy"
+    fi
+}
+
+# Function to check namespace pods
+check_namespace_pods() {
+    local namespace="$1"
+    local pods=$(${KUBECTL} get pods -n "${namespace}" --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
+    
+    if [ "${pods}" -gt 0 ]; then
+        echo "healthy"
+    else
+        echo "unhealthy"
+    fi
+}
+
+# Function to get VM count
+get_vm_count() {
+    local vm_list=$(${TART} list 2>/dev/null || echo "")
+    local running_vms=0
+    local total_vms=0
+    
+    if [ -n "${vm_list}" ]; then
+        running_vms=$(echo "${vm_list}" | grep "running" | wc -l | xargs || echo "0")
+        total_vms=$(echo "${vm_list}" | grep -v "^NAME" | grep -v "^$" | wc -l | xargs || echo "0")
+    fi
+    echo "${running_vms} running / ${total_vms} total"
+}
+
+# Generate JSON status
+generate_status() {
+    echo "{"
+    echo '  "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",'
+    echo '  "services": {'
+    
+    # Infrastructure
+    docker_status=$(check_service_status "docker" "docker info")
+    echo '    "docker": {"status": "'${docker_status}'", "details": "Container runtime"},'
+    
+    kind_status=$(check_service_status "kind" "${KIND} get clusters | grep -q homelab")
+    echo '    "kind": {"status": "'${kind_status}'", "details": "Kubernetes cluster"},'
+    
+    kubectl_status=$(check_service_status "kubectl" "${KUBECTL} version")
+    echo '    "kubectl": {"status": "'${kubectl_status}'", "details": "Kubernetes client"},'
+    
+    tart_status=$(check_service_status "tart" "${TART} list")
+    echo '    "tart": {"status": "'${tart_status}'", "details": "VM management"},'
+    
+    # Kubernetes Services
+    if ${KUBECTL} get namespace argocd &>/dev/null; then
+        argocd_status=$(check_namespace_pods "argocd")
+        argocd_pods=$(${KUBECTL} get pods -n argocd --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
+        echo '    "argocd": {"status": "'${argocd_status}'", "details": "'${argocd_pods}' pods running"},'
+    else
+        echo '    "argocd": {"status": "unhealthy", "details": "Namespace not found"},'
+    fi
+    
+    if ${KUBECTL} get namespace orchard-system &>/dev/null; then
+        orchard_status=$(check_namespace_pods "orchard-system")
+        orchard_pods=$(${KUBECTL} get pods -n orchard-system --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
+        echo '    "orchard": {"status": "'${orchard_status}'", "details": "'${orchard_pods}' pods running"},'
+    else
+        echo '    "orchard": {"status": "unhealthy", "details": "Namespace not found"},'
+    fi
+    
+    # Support services (namespace-only checks)
+    certmanager_status="unhealthy"
+    if ${KUBECTL} get namespace cert-manager &>/dev/null; then
+        certmanager_status="warning"  # Namespace exists but no pods expected yet
+    fi
+    echo '    "certmanager": {"status": "'${certmanager_status}'", "details": "Namespace ready"},'
+    
+    ingress_status="unhealthy"
+    if ${KUBECTL} get namespace ingress-nginx &>/dev/null; then
+        ingress_status="warning"  # Namespace exists but no pods expected yet
+    fi
+    echo '    "ingress": {"status": "'${ingress_status}'", "details": "Namespace ready"},'
+    
+    externalsecrets_status="unhealthy"
+    if ${KUBECTL} get namespace external-secrets &>/dev/null; then
+        externalsecrets_status="warning"  # Namespace exists but no pods expected yet
+    fi
+    echo '    "externalsecrets": {"status": "'${externalsecrets_status}'", "details": "Namespace ready"},'
+    
+    monitoring_status="unhealthy"
+    if ${KUBECTL} get namespace monitoring &>/dev/null; then
+        monitoring_status="warning"  # Namespace exists but no pods expected yet
+    fi
+    echo '    "monitoring": {"status": "'${monitoring_status}'", "details": "Namespace ready"},'
+    
+    keycloak_status="unhealthy"
+    if ${KUBECTL} get namespace keycloak &>/dev/null; then
+        keycloak_status="warning"  # Namespace exists but no pods expected yet
+    fi
+    echo '    "keycloak": {"status": "'${keycloak_status}'", "details": "Namespace ready"},'
+    
+    # Network
+    network_status=$(check_service_status "network" "docker network ls | grep -q kind")
+    echo '    "network": {"status": "'${network_status}'", "details": "Docker networking"},'
+    
+    # Virtual Machines
+    macos_dev_status="unhealthy"
+    if ${TART} list 2>/dev/null | grep -q "^macos-dev.*running"; then
+        macos_dev_status="healthy"
+        macos_dev_details="Running"
+    elif ${TART} list 2>/dev/null | grep -q "^macos-dev"; then
+        macos_dev_status="warning"
+        macos_dev_details="Stopped"
+    else
+        macos_dev_details="Not found"
+    fi
+    echo '    "macos-dev": {"status": "'${macos_dev_status}'", "details": "'${macos_dev_details}'"},'
+    
+    macos_ci_status="unhealthy"
+    if ${TART} list 2>/dev/null | grep -q "^macos-ci.*running"; then
+        macos_ci_status="healthy"
+        macos_ci_details="Running"
+    elif ${TART} list 2>/dev/null | grep -q "^macos-ci"; then
+        macos_ci_status="warning"
+        macos_ci_details="Stopped"
+    else
+        macos_ci_details="Not found"
+    fi
+    echo '    "macos-ci": {"status": "'${macos_ci_status}'", "details": "'${macos_ci_details}'"},'
+    
+    # Total VMs
+    vm_count=$(get_vm_count)
+    running_count=$(echo "${vm_count}" | cut -d' ' -f1)
+    if [ "${running_count}" -gt 0 ]; then
+        total_vms_status="healthy"
+    elif [ "${running_count}" -eq 0 ] && ${TART} list 2>/dev/null | grep -v "^NAME" | grep -q "."; then
+        total_vms_status="warning"
+    else
+        total_vms_status="unhealthy"
+    fi
+    echo '    "total-vms": {"status": "'${total_vms_status}'", "details": "'${vm_count}'"}'
+    
+    echo '  },'
+    
+    # Calculate summary
+    healthy_count=0
+    warning_count=0
+    unhealthy_count=0
+    
+    # Count service statuses (this is a simplified count - in real implementation you'd parse the JSON)
+    for status in "${docker_status}" "${kind_status}" "${kubectl_status}" "${tart_status}" "${argocd_status}" "${orchard_status}" "${certmanager_status}" "${ingress_status}" "${externalsecrets_status}" "${monitoring_status}" "${keycloak_status}" "${network_status}" "${macos_dev_status}" "${macos_ci_status}" "${total_vms_status}"; do
+        case "${status}" in
+            "healthy") ((healthy_count++)) ;;
+            "warning") ((warning_count++)) ;;
+            "unhealthy") ((unhealthy_count++)) ;;
+        esac
+    done
+    
+    echo '  "summary": {'
+    echo '    "healthy": '${healthy_count}','
+    echo '    "warning": '${warning_count}','
+    echo '    "unhealthy": '${unhealthy_count}
+    echo '  }'
+    echo "}"
+}
+
+# Generate the status
+generate_status

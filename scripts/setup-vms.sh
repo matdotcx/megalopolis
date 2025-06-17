@@ -50,7 +50,7 @@ check_tart() {
 get_yaml_value() {
     local file="$1"
     local key="$2"
-    grep -E "^\s*${key}:" "$file" | sed -E 's/^\s*[^:]+:\s*"?([^"]*)"?.*/\1/' | head -1
+    grep -E "^${key}:" "$file" | sed -E 's/^[^:]+:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/' | head -1
 }
 
 # Check if VM exists
@@ -124,7 +124,7 @@ create_vm() {
     if [[ -z "$image_source" ]]; then
         case "$base_image" in
             "macos-sequoia")
-                image_source="ghcr.io/cirruslabs/macos-sequoia:latest"
+                image_source="ghcr.io/cirruslabs/macos-sequoia-base:latest"
                 ;;
             "ubuntu-jammy")
                 image_source="ghcr.io/cirruslabs/ubuntu:jammy"
