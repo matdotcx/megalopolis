@@ -11,7 +11,7 @@ services:
     volumes:
       # Mount tart binary from host (required for VM operations)
       - "../../tart-binary:/app/bin/tart-binary:ro"
-      # Mount tart VM storage directory
+      # Mount tart VM storage directory  
       - "${HOME}/.tart:/home/vmoperator/.tart:rw"
       # Mount logs directory
       - "./logs:/app/logs:rw"
@@ -30,4 +30,4 @@ services:
 
 networks:
   megalopolis:
-    external: true
+    driver: bridge
