@@ -33,38 +33,28 @@ echo "ArgoCD admin password:"
 $KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 echo ""
 
-# Deploy VM Operator (Kubernetes-native VM management)
-echo "Deploying VM Operator (Kubernetes-native VM management)..."
+# Deploy Orchard infrastructure for VM management
+echo "Deploying Orchard VM management infrastructure..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+K8S_MANIFESTS_DIR="$PROJECT_DIR/k8s-manifests"
 
-# Deploy VM Operator using the deployment script
-if [[ -x "$SCRIPT_DIR/deploy-vm-operator.sh" ]]; then
-    echo "Running VM Operator deployment..."
-    "$SCRIPT_DIR/deploy-vm-operator.sh" deploy
+if [[ -d "$K8S_MANIFESTS_DIR" ]]; then
+    echo "Applying Orchard manifests..."
     
-    echo "VM Operator deployed successfully!"
+    # Apply Orchard components if they exist
+    [[ -f "$K8S_MANIFESTS_DIR/orchard-namespace.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-namespace.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/orchard-rbac.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-rbac.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/orchard-pvc.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-pvc.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/orchard-deployment.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-deployment.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/orchard-service.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-service.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/vm-api-bridge.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-api-bridge.yaml"
+    
+    echo "Note: Orchard controller may have Docker socket limitations in containerized environments."
+    echo "VM management is available via CLI: scripts/setup-vms.sh"
+    
 else
-    echo "WARNING: VM Operator deployment script not found. Using manual deployment..."
-    
-    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-    K8S_MANIFESTS_DIR="$PROJECT_DIR/k8s-manifests"
-    
-    if [[ -d "$K8S_MANIFESTS_DIR" ]]; then
-        echo "Applying VM Operator manifests..."
-        $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-crd.yaml"
-        $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-rbac.yaml"
-        $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-deployment.yaml"
-        
-        echo "Waiting for VM Operator to be ready..."
-        $KUBECTL wait --for=condition=Ready pods -n orchard-system -l app=vm-operator --timeout=300s || {
-            echo "WARNING: VM Operator may not be ready. Checking deployment status..."
-            $KUBECTL get pods -n orchard-system -l app=vm-operator
-        }
-        
-        echo "VM Operator deployed successfully!"
-    else
-        echo "WARNING: VM Operator manifests directory not found. Skipping VM Operator deployment."
-    fi
+    echo "WARNING: Orchard manifests directory not found. Skipping Orchard deployment."
 fi
 
 echo "Bootstrap complete!"
@@ -76,13 +66,13 @@ echo "  $KUBECTL port-forward -n argocd svc/argocd-server 8080:443"
 echo "  Open https://localhost:8080"
 echo "  Username: admin"
 echo ""
-echo "VM Operator (Kubernetes-native VM management):"
-echo "  $KUBECTL port-forward -n orchard-system svc/vm-operator 8081:8080"
+echo "Orchard Controller (if available):"
+echo "  $KUBECTL port-forward -n orchard-system svc/orchard-controller 8081:8080"
 echo "  Open http://localhost:8081"
 echo ""
-echo "VM Management:"
+echo "VM Management (CLI):"
 echo "  make vms                    - List all VMs"
 echo "  scripts/setup-vms.sh list  - List VMs with details"
 echo "  scripts/setup-vms.sh health <vm> - Check VM health"
 echo "  scripts/setup-vms.sh wait <vm>   - Wait for VM readiness"
-echo "  scripts/deploy-vm-operator.sh status - Check VM Operator status"
+echo "  scripts/setup-vms.sh help  - Show all VM management commands"

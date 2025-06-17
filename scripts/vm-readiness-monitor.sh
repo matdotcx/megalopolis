@@ -4,8 +4,9 @@ set -euo pipefail
 # VM readiness monitoring script
 # Enhanced monitoring with boot progress indicators
 
-TART_BIN="./tart-binary"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TART_BIN="${PROJECT_ROOT}/tart-binary"
 
 # Colors for output
 RED='\033[0;31m'
@@ -95,7 +96,7 @@ wait_for_vm_ready() {
         check_timeout || return 1
         
         local vm_status
-        vm_status=$("$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}' || echo "not_found")
+        vm_status=$("$TART_BIN" list 2>/dev/null | awk -v vm="$vm_name" '$2 == vm {print $NF}' || echo "not_found")
         
         case "$vm_status" in
             "running")
@@ -186,7 +187,7 @@ check_vm_health() {
     
     # Check if VM is running
     local status
-    status=$("$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}' || echo "not_found")
+    status=$("$TART_BIN" list 2>/dev/null | awk -v vm="$vm_name" '$2 == vm {print $NF}' || echo "not_found")
     
     case "$status" in
         "running")
@@ -232,7 +233,7 @@ get_vm_status() {
     
     # Basic VM status
     local vm_status
-    vm_status=$("$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}' || echo "not_found")
+    vm_status=$("$TART_BIN" list 2>/dev/null | awk -v vm="$vm_name" '$2 == vm {print $NF}' || echo "not_found")
     
     case "$vm_status" in
         "running")

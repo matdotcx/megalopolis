@@ -86,8 +86,7 @@ run_test "Infrastructure State Check" "${SCRIPT_DIR}/test-infrastructure-state.s
 # Run Kubernetes tests
 run_test "Kubernetes Services" "${SCRIPT_DIR}/test-kubernetes-services.sh"
 
-# Run VM operator tests
-run_test "VM Operator" "${SCRIPT_DIR}/test-vm-operator.sh"
+# Note: VM operator tests removed - using CLI VM management
 
 # Run VM readiness tests
 run_test "VM Readiness" "${SCRIPT_DIR}/test-vm-readiness.sh"
