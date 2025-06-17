@@ -33,25 +33,22 @@ echo "ArgoCD admin password:"
 $KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 echo ""
 
-# Deploy Orchard infrastructure for VM management
-echo "Deploying Orchard VM management infrastructure..."
+# Deploy VM management infrastructure
+echo "Deploying VM management infrastructure..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 K8S_MANIFESTS_DIR="$PROJECT_DIR/k8s-manifests"
 
 if [[ -d "$K8S_MANIFESTS_DIR" ]]; then
-    echo "Applying Orchard manifests..."
+    echo "Applying VM operator manifests..."
     
-    # Apply Orchard components if they exist
-    [[ -f "$K8S_MANIFESTS_DIR/orchard-namespace.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-namespace.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/orchard-rbac.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-rbac.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/orchard-pvc.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-pvc.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/orchard-deployment.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-deployment.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/orchard-service.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/orchard-service.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/vm-api-bridge.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-api-bridge.yaml"
+    # Deploy the minimal VM operator
+    [[ -f "$K8S_MANIFESTS_DIR/vm-operator-deployment.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-deployment.yaml"
+    [[ -f "$K8S_MANIFESTS_DIR/vm-operator-service.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-service.yaml"
     
-    echo "Note: Orchard controller may have Docker socket limitations in containerized environments."
-    echo "VM management is available via CLI: scripts/setup-vms.sh"
+    echo "VM management available via:"
+    echo "- HTTP API: kubectl port-forward -n orchard-system svc/vm-operator 8082:8082"
+    echo "- CLI scripts: scripts/setup-vms.sh"
     
 else
     echo "WARNING: Orchard manifests directory not found. Skipping Orchard deployment."
@@ -66,9 +63,10 @@ echo "  $KUBECTL port-forward -n argocd svc/argocd-server 8080:443"
 echo "  Open https://localhost:8080"
 echo "  Username: admin"
 echo ""
-echo "Orchard Controller (if available):"
-echo "  $KUBECTL port-forward -n orchard-system svc/orchard-controller 8081:8080"
-echo "  Open http://localhost:8081"
+echo "VM Operator API:"
+echo "  $KUBECTL port-forward -n orchard-system svc/vm-operator 8082:8082"
+echo "  Open http://localhost:8082/health"
+echo "  API endpoints: /vms, /vms/{name}, /vms/{name}/start, /vms/{name}/stop"
 echo ""
 echo "VM Management (CLI):"
 echo "  make vms                    - List all VMs"
