@@ -44,6 +44,9 @@ plan.md
 # Binaries downloaded by ensure-tools.sh
 tart-binary
 orchard-binary
+helm
+kind-binary
+kubectl
 *.dSYM/
 *.so
 *.dylib
