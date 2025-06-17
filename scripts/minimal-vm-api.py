@@ -22,6 +22,9 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
             self.handle_health()
         elif self.path == '/vms':
             self.handle_vms()
+        elif self.path.startswith('/vms/'):
+            vm_name = self.path[5:]  # Remove '/vms/' prefix
+            self.handle_vm_detail(vm_name)
         else:
             self.send_error(404, "Endpoint not found")
     
@@ -84,6 +87,64 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             
             self.wfile.write(json.dumps(vms, indent=2).encode())
+            
+        except subprocess.TimeoutExpired:
+            self.send_error(504, "Tart command timed out")
+        except subprocess.CalledProcessError as e:
+            self.send_error(500, f"Tart command failed: {e}")
+        except Exception as e:
+            self.send_error(500, f"Internal server error: {e}")
+    
+    def handle_vm_detail(self, vm_name):
+        """Handle /vms/{name} endpoint"""
+        try:
+            # Get project root directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            tart_bin = os.path.join(project_root, "tart-binary")
+            
+            # Run tart list command
+            result = subprocess.run(
+                [tart_bin, "list"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            vm_found = None
+            if result.returncode == 0 and result.stdout.strip():
+                # Parse tart list output to find the specific VM
+                lines = result.stdout.strip().split('\n')
+                for line in lines:
+                    # Skip header line
+                    if line.startswith('Source'):
+                        continue
+                    
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        vm_source = parts[0]
+                        current_vm_name = parts[1] 
+                        vm_status = parts[-1]  # Last column is status
+                        
+                        if current_vm_name == vm_name:
+                            vm_found = {
+                                "name": current_vm_name,
+                                "status": vm_status,
+                                "source": vm_source
+                            }
+                            break
+            
+            if vm_found:
+                # Send success response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                self.wfile.write(json.dumps(vm_found, indent=2).encode())
+            else:
+                # VM not found
+                self.send_error(404, f"VM '{vm_name}' not found")
             
         except subprocess.TimeoutExpired:
             self.send_error(504, "Tart command timed out")
