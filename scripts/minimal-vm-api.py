@@ -11,7 +11,7 @@ import os
 import sys
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from datetime import datetime
+from datetime import datetime, timezone
 
 class MinimalVMAPIHandler(BaseHTTPRequestHandler):
     """Simple HTTP request handler for VM operations"""
@@ -44,7 +44,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
         response = {
             "status": "healthy",
             "message": "Minimal VM API is running",
-            "timestamp": datetime.now(datetime.timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         self.send_response(200)
@@ -206,7 +206,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
                     "status": "success",
                     "message": f"VM '{vm_name}' start command issued",
                     "vm_name": vm_name,
-                    "timestamp": datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 self.send_response(202)  # Accepted
             except Exception as e:
@@ -214,7 +214,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
                     "status": "error", 
                     "message": f"Failed to start VM '{vm_name}': {str(e)}",
                     "vm_name": vm_name,
-                    "timestamp": datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 self.send_response(500)
             
@@ -272,7 +272,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
                     "status": "success",
                     "message": f"VM '{vm_name}' stop command issued",
                     "vm_name": vm_name,
-                    "timestamp": datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 self.send_response(200)
             else:
@@ -280,7 +280,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
                     "status": "error",
                     "message": f"Failed to stop VM '{vm_name}': {stop_result.stderr.strip()}",
                     "vm_name": vm_name,
-                    "timestamp": datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 self.send_response(500)
             
