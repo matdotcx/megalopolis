@@ -94,6 +94,9 @@ run_test "VM Readiness" "${SCRIPT_DIR}/test-vm-readiness.sh"
 # Run VM connectivity tests
 run_test "VM Connectivity" "${SCRIPT_DIR}/test-vm-connectivity.sh"
 
+# Run VM operator integration tests
+run_test "VM Operator Integration" "${SCRIPT_DIR}/test-vm-operator-integration.sh"
+
 # Run end-to-end tests
 run_test "End-to-End Validation" "${SCRIPT_DIR}/test-e2e-validation.sh"
 
