@@ -42,6 +42,12 @@ make validate
 - `make vm-connect VM_NAME=name` - Connect to a VM via SSH
 - `make vm-rebuild` - Rebuild all VMs from base images
 
+### VM Operator API
+- **HTTP API** for VM management and automation
+- **CLI Management** via `scripts/setup-vms.sh`
+- **Docker Container** deployment option
+- **Kubernetes Integration** for dashboard access
+
 ## Architecture
 
 ### Unified Homelab Environment
@@ -179,6 +185,74 @@ Falls back to Docker Desktop if Colima is not available.
 - **Disk**: 500GB+ SSD for optimal performance
 - **CPU**: M2 Pro/Max or M3 for best performance
 
+## VM Operator
+
+The VM Operator provides HTTP API access to VM management functionality for automation and dashboard integration.
+
+### Quick Start
+
+```bash
+# Start VM API server
+python3 scripts/minimal-vm-api.py
+
+# Test API endpoints
+curl http://localhost:8082/health
+curl http://localhost:8082/vms
+curl -X POST http://localhost:8082/vms/vm-name/start
+```
+
+### API Endpoints
+
+- `GET /health` - API health check
+- `GET /vms` - List all VMs with status
+- `GET /vms/{name}` - Get specific VM details
+- `POST /vms/{name}/start` - Start a VM
+- `POST /vms/{name}/stop` - Stop a VM
+
+### Deployment Options
+
+**Docker Container:**
+```bash
+# Build and run container
+docker build -t megalopolis/vm-operator -f docker/vm-operator/Dockerfile .
+docker run -d -p 8082:8082 \
+  -v $(pwd)/tart-binary:/app/bin/tart-binary:ro \
+  -v ~/.tart:/home/vmoperator/.tart:rw \
+  megalopolis/vm-operator
+```
+
+**Kubernetes Deployment:**
+```bash
+# Deploy to Kubernetes cluster
+kubectl apply -f k8s-manifests/vm-operator-deployment.yaml
+kubectl apply -f k8s-manifests/vm-operator-service.yaml
+
+# Access via port forwarding
+kubectl port-forward -n orchard-system svc/vm-operator 8082:8082
+```
+
+**CLI Management:**
+```bash
+# Direct VM management without API
+scripts/setup-vms.sh list
+scripts/setup-vms.sh start vm-name
+scripts/setup-vms.sh stop vm-name
+scripts/setup-vms.sh health vm-name
+```
+
+### Testing
+
+```bash
+# Run comprehensive test suite
+bash tests/test-vm-operator-integration.sh
+
+# Test Docker deployment
+bash tests/test-docker-vm-operations.sh
+
+# Test Kubernetes deployment
+bash tests/test-k8s-vm-operator.sh
+```
+
 ## Troubleshooting
 
 ### Container Runtime Issues
@@ -191,5 +265,11 @@ Falls back to Docker Desktop if Colima is not available.
 - **VM creation fails**: Check disk space and ensure base images are available
 - **Performance issues**: Reduce VM memory allocation or limit concurrent VMs
 - **SSH connection fails**: Verify VM is running and ports are not conflicted
+
+### VM Operator Issues
+- **API not responding**: Check if tart binary is accessible and executable
+- **Docker volume mounts fail**: Known limitation in Colima/containerized Docker - use Kubernetes deployment
+- **K8s pod pending**: HostPath volumes require real cluster with host filesystem access
+- **Comprehensive troubleshooting**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 For detailed VM documentation, see [tart/README.md](tart/README.md).

@@ -91,7 +91,7 @@ echo "Testing VM infrastructure..."
 vm_count=$(${TART} list 2>/dev/null | grep -c "running" || echo "0")
 echo "Found ${vm_count} running VMs"
 
-if ${TART} list 2>/dev/null | grep -q "macos-dev"; then
+if ${TART} list 2>/dev/null | grep -q "^macos-dev[[:space:]]"; then
     echo "✅ macos-dev VM exists"
     ((PASSED_TESTS++))
 else
@@ -99,7 +99,7 @@ else
     echo "   Note: VM creation requires authenticated access to ghcr.io/cirruslabs images"
 fi
 
-if ${TART} list 2>/dev/null | grep -q "macos-ci"; then
+if ${TART} list 2>/dev/null | grep -q "^macos-ci[[:space:]]"; then
     echo "✅ macos-ci VM exists"
     ((PASSED_TESTS++))
 else
@@ -110,7 +110,7 @@ fi
 # Test network connectivity
 echo ""
 echo "Testing network configuration..."
-if docker network ls | grep -q "kind"; then
+if docker network ls --format "table {{.Name}}" | tail -n +2 | grep -q "^kind$"; then
     echo "✅ Kind network exists"
     ((PASSED_TESTS++))
 else

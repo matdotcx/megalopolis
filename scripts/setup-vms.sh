@@ -56,14 +56,14 @@ get_yaml_value() {
 # Check if VM exists
 vm_exists() {
     local vm_name="$1"
-    "$TART_BIN" list 2>/dev/null | grep -q "^$vm_name"
+    "$TART_BIN" list 2>/dev/null | grep -q "^$vm_name[[:space:]]"
 }
 
 # Get VM status
 vm_status() {
     local vm_name="$1"
     if vm_exists "$vm_name"; then
-        "$TART_BIN" list 2>/dev/null | grep "^$vm_name" | awk '{print $2}'
+        "$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}'
     else
         echo "not_found"
     fi
@@ -157,6 +157,7 @@ create_vm() {
 # Start VM
 start_vm() {
     local vm_name="$1"
+    local wait_for_ready="${2:-true}"
     
     if ! vm_exists "$vm_name"; then
         log_error "VM '$vm_name' does not exist"
@@ -168,6 +169,14 @@ start_vm() {
     
     if [[ "$status" == "running" ]]; then
         log_info "VM '$vm_name' is already running"
+        
+        # If requested, wait for it to be ready
+        if [[ "$wait_for_ready" == "true" ]]; then
+            log_info "Checking VM readiness..."
+            if command -v "$SCRIPT_DIR/vm-readiness-monitor.sh" >/dev/null 2>&1; then
+                "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" 60
+            fi
+        fi
         return 0
     fi
     
@@ -175,6 +184,22 @@ start_vm() {
     if "$TART_BIN" run "$vm_name" --no-graphics >/dev/null 2>&1 &
     then
         log_info "VM '$vm_name' started successfully"
+        
+        # Wait for VM to be ready if requested
+        if [[ "$wait_for_ready" == "true" ]]; then
+            log_info "Waiting for VM to be ready..."
+            if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
+                if "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" 300; then
+                    log_info "VM '$vm_name' is ready for use"
+                else
+                    log_warn "VM '$vm_name' started but readiness check failed"
+                fi
+            else
+                log_warn "VM readiness monitor not available, skipping readiness check"
+                sleep 30  # Basic wait
+            fi
+        fi
+        
         return 0
     else
         log_error "Failed to start VM '$vm_name'"
@@ -269,16 +294,22 @@ show_usage() {
     echo "  setup          Setup default VMs"
     echo "  list           List all VMs"
     echo "  create <name> <config>  Create VM from config file"
-    echo "  start <name>   Start VM"
+    echo "  start <name> [wait]     Start VM (wait=true/false for readiness check)"
     echo "  stop <name>    Stop VM"
     echo "  delete <name>  Delete VM"
     echo "  rebuild        Rebuild all default VMs"
     echo "  status         Show VM status"
+    echo "  wait <name> [timeout]   Wait for VM to be ready (default: 300s)"
+    echo "  health <name>  Check VM health and connectivity"
+    echo "  monitor        Monitor health of all VMs"
     echo ""
     echo "Examples:"
     echo "  $0 setup"
     echo "  $0 create my-vm macos-dev.yaml"
-    echo "  $0 start macos-dev"
+    echo "  $0 start macos-dev true     # Start and wait for readiness"
+    echo "  $0 wait macos-dev 600       # Wait up to 10 minutes for VM"
+    echo "  $0 health macos-dev         # Check VM health"
+    echo "  $0 monitor                  # Monitor all VMs"
     echo "  $0 list"
 }
 
@@ -309,10 +340,10 @@ main() {
             ;;
         "start")
             if [[ $# -lt 2 ]]; then
-                log_error "Usage: $0 start <vm_name>"
+                log_error "Usage: $0 start <vm_name> [wait_for_ready]"
                 exit 1
             fi
-            start_vm "$2"
+            start_vm "$2" "${3:-true}"
             ;;
         "stop")
             if [[ $# -lt 2 ]]; then
@@ -337,6 +368,38 @@ main() {
             ;;
         "status")
             list_vms
+            ;;
+        "wait")
+            if [[ $# -lt 2 ]]; then
+                log_error "Usage: $0 wait <vm_name> [timeout_seconds]"
+                exit 1
+            fi
+            if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
+                "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$2" "${3:-300}"
+            else
+                log_error "VM readiness monitor not available"
+                exit 1
+            fi
+            ;;
+        "health")
+            if [[ $# -lt 2 ]]; then
+                log_error "Usage: $0 health <vm_name>"
+                exit 1
+            fi
+            if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
+                "$SCRIPT_DIR/vm-readiness-monitor.sh" check "$2"
+            else
+                log_error "VM readiness monitor not available"
+                exit 1
+            fi
+            ;;
+        "monitor")
+            if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
+                "$SCRIPT_DIR/vm-readiness-monitor.sh" monitor
+            else
+                log_error "VM readiness monitor not available"
+                exit 1
+            fi
             ;;
         "help"|"-h"|"--help")
             show_usage
