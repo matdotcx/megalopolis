@@ -65,3 +65,4 @@ kubectl
 *.dSYM/
 *.so
 *.dylib
+# NS1 API Key for Let's Encrypt DNS-01

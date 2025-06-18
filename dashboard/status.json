@@ -1,24 +1,25 @@
 {
-  "timestamp": "2025-06-18T19:34:00Z",
+  "timestamp": "2025-06-18T20:03:45Z",
   "services": {
     "docker": {"status": "healthy", "details": "Container runtime"},
     "kind": {"status": "healthy", "details": "Kubernetes cluster"},
     "kubectl": {"status": "healthy", "details": "Kubernetes client"},
     "tart": {"status": "healthy", "details": "VM management"},
     "argocd": {"status": "healthy", "details": "7 pods running"},
-    "orchard": {"status": "unhealthy", "details": "Not running"},
-    "certmanager": {"status": "healthy", "details": "Certificate management"},
-    "ingress": {"status": "healthy", "details": "HTTP routing"},
-    "macos-dev": {"status": "warning", "details": "VM running but controller down"},
-    "macos-ci": {"status": "warning", "details": "VM running but controller down"},
-    "externalsecrets": {"status": "healthy", "details": "Secret management"},
-    "monitoring": {"status": "healthy", "details": "Metrics collection"},
-    "keycloak": {"status": "healthy", "details": "Identity provider"},
-    "network": {"status": "healthy", "details": "Network connectivity"}
+    "orchard": {"status": "healthy", "details": "2 pods running"},
+    "certmanager": {"status": "warning", "details": "Namespace ready"},
+    "ingress": {"status": "warning", "details": "Namespace ready"},
+    "externalsecrets": {"status": "warning", "details": "Namespace ready"},
+    "monitoring": {"status": "warning", "details": "Namespace ready"},
+    "keycloak": {"status": "warning", "details": "Namespace ready"},
+    "network": {"status": "unhealthy", "details": "Docker networking"},
+    "macos-dev": {"status": "healthy", "details": "Ready"},
+    "macos-ci": {"status": "healthy", "details": "Ready"},
+    "total-vms": {"status": "healthy", "details": "2 running / 5 total"}
   },
   "summary": {
-    "healthy": 11,
-    "warning": 2,
+    "healthy": 9,
+    "warning": 5,
     "unhealthy": 1
   }
 }

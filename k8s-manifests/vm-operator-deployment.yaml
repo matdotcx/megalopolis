@@ -68,7 +68,6 @@ spec:
       - name: tart-binary
         hostPath:
           path: /Users/diego/Developer/workspace/matdotcx/megalopolis/tart-binary
-          type: File
       - name: tart-storage
         hostPath:
           path: /Users/diego/.tart
