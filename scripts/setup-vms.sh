@@ -56,14 +56,14 @@ get_yaml_value() {
 # Check if VM exists
 vm_exists() {
     local vm_name="$1"
-    "$TART_BIN" list 2>/dev/null | grep -q "^$vm_name[[:space:]]"
+    "$TART_BIN" list 2>/dev/null | grep -q "[[:space:]]$vm_name[[:space:]]"
 }
 
 # Get VM status
 vm_status() {
     local vm_name="$1"
     if vm_exists "$vm_name"; then
-        "$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}'
+        "$TART_BIN" list 2>/dev/null | grep "[[:space:]]$vm_name[[:space:]]" | awk '{print $NF}'
     else
         echo "not_found"
     fi
