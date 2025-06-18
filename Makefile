@@ -1,4 +1,4 @@
-.PHONY: help init up down rebuild clean status test-automation validate vms vm-create vm-connect vm-rebuild vm-status comprehensive-status auto-provision vm-health deploy-full monitoring
+.PHONY: help init up down rebuild clean status test-automation validate vms vm-create vm-connect vm-rebuild vm-status comprehensive-status auto-provision vm-health deploy-full monitoring deploy-all-green
 
 CLUSTER_NAME := homelab
 KUBECONFIG := ~/.kube/config
@@ -244,3 +244,7 @@ launch-dashboard: ## Launch dashboard after setup completion
 		(sleep 3 && open http://localhost:8090) & \
 	fi
 	@python3 dashboard/server.py
+
+deploy-all-green: ## Deploy all services needed for all-green dashboard status
+	@echo "🟢 Deploying all services for all-green dashboard status..."
+	@./scripts/deploy-all-green-services.sh
