@@ -204,10 +204,10 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
                 self.send_error(404, f"VM '{vm_name}' not found")
                 return
             
-            # Start the VM in background (async)
+            # Start the VM in background (async) with nohup for session independence
             try:
                 subprocess.Popen(
-                    [tart_bin, "run", vm_name],
+                    ["nohup", tart_bin, "run", vm_name],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
