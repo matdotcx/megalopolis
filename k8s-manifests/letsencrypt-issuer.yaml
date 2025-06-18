@@ -1,0 +1,43 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: diego@iaconelli.org
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: diego@iaconelli.org
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: megalopolis-tls-letsencrypt
+  namespace: default
+spec:
+  secretName: megalopolis-tls-letsencrypt
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: megalopolis.iaconelli.org
+  dnsNames:
+  - megalopolis.iaconelli.org

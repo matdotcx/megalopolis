@@ -12,6 +12,11 @@ TART_CONFIG_DIR="$PROJECT_DIR/tart"
 # Default VM configurations
 DEFAULT_VMS=("macos-dev" "macos-ci")
 
+# Configuration variables (can be overridden by environment)
+VM_STARTUP_TIMEOUT=${VM_STARTUP_TIMEOUT:-300}  # 5 minutes default, was 60s
+VM_SSH_TIMEOUT=${VM_SSH_TIMEOUT:-180}          # 3 minutes for SSH, was 60s
+VM_READINESS_RETRIES=${VM_READINESS_RETRIES:-3} # Retry failed readiness checks
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -56,14 +61,14 @@ get_yaml_value() {
 # Check if VM exists
 vm_exists() {
     local vm_name="$1"
-    "$TART_BIN" list 2>/dev/null | grep -q "^$vm_name[[:space:]]"
+    "$TART_BIN" list 2>/dev/null | grep -q "[[:space:]]$vm_name[[:space:]]"
 }
 
 # Get VM status
 vm_status() {
     local vm_name="$1"
     if vm_exists "$vm_name"; then
-        "$TART_BIN" list 2>/dev/null | grep "^$vm_name[[:space:]]" | awk '{print $2}'
+        "$TART_BIN" list 2>/dev/null | grep "[[:space:]]$vm_name[[:space:]]" | awk '{print $NF}'
     else
         echo "not_found"
     fi
@@ -174,30 +179,44 @@ start_vm() {
         if [[ "$wait_for_ready" == "true" ]]; then
             log_info "Checking VM readiness..."
             if command -v "$SCRIPT_DIR/vm-readiness-monitor.sh" >/dev/null 2>&1; then
-                "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" 60
+                "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" "$VM_STARTUP_TIMEOUT"
             fi
         fi
         return 0
     fi
     
     log_info "Starting VM: $vm_name"
-    if "$TART_BIN" run "$vm_name" --no-graphics >/dev/null 2>&1 &
+    if nohup "$TART_BIN" run "$vm_name" > /dev/null 2>&1 &
     then
         log_info "VM '$vm_name' started successfully"
         
         # Wait for VM to be ready if requested
         if [[ "$wait_for_ready" == "true" ]]; then
-            log_info "Waiting for VM to be ready..."
-            if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
-                if "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" 300; then
-                    log_info "VM '$vm_name' is ready for use"
+            log_info "Waiting for VM to be ready (timeout: ${VM_STARTUP_TIMEOUT}s)..."
+            
+            local retry_count=0
+            while [ $retry_count -lt $VM_READINESS_RETRIES ]; do
+                if [[ -x "$SCRIPT_DIR/vm-readiness-monitor.sh" ]]; then
+                    if "$SCRIPT_DIR/vm-readiness-monitor.sh" wait "$vm_name" "$VM_STARTUP_TIMEOUT"; then
+                        log_info "VM '$vm_name' is ready for use"
+                        return 0
+                    else
+                        retry_count=$((retry_count + 1))
+                        if [ $retry_count -lt $VM_READINESS_RETRIES ]; then
+                            log_warn "VM readiness check failed, retrying ($retry_count/$VM_READINESS_RETRIES)..."
+                            sleep 30
+                        else
+                            log_error "VM '$vm_name' failed readiness check after $VM_READINESS_RETRIES attempts"
+                            # Continue anyway - VM might be usable
+                            log_warn "Continuing with potentially non-ready VM..."
+                        fi
+                    fi
                 else
-                    log_warn "VM '$vm_name' started but readiness check failed"
+                    log_warn "VM readiness monitor not available, using basic wait"
+                    sleep 60  # Increased basic wait
+                    break
                 fi
-            else
-                log_warn "VM readiness monitor not available, skipping readiness check"
-                sleep 30  # Basic wait
-            fi
+            done
         fi
         
         return 0

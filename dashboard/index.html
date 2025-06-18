@@ -329,7 +329,7 @@
         let refreshInterval;
         
         function updateStatus() {
-            fetch('/api/status')
+            fetch('/status.json')
                 .then(response => response.json())
                 .then(data => {
                     // Update individual service statuses

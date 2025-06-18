@@ -241,10 +241,8 @@ get_vm_status() {
             vm_ip=$("$TART_BIN" ip "$vm_name" 2>/dev/null || echo "")
             
             if [ -n "$vm_ip" ]; then
-                # Check SSH availability
-                if portable_timeout 3 ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no \
-                    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-                    "admin@$vm_ip" "echo ready" >/dev/null 2>&1; then
+                # Check SSH port availability (no authentication)
+                if portable_timeout 3 nc -z "$vm_ip" 22 >/dev/null 2>&1; then
                     echo "ready"
                 else
                     echo "ssh-pending"

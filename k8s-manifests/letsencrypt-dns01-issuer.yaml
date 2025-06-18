@@ -1,0 +1,56 @@
+# NS1 API Secret - You'll need to get this from your NS1 account
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ns1-api-key
+  namespace: cert-manager
+type: Opaque
+stringData:
+  api-key: "YOUR_NS1_API_KEY_HERE"  # Replace with your actual NS1 API key from https://my.nsone.net/
+---
+# ClusterIssuer for Let's Encrypt staging with DNS-01 challenge
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: diego@iaconelli.org
+    privateKeySecretRef:
+      name: letsencrypt-dns01-staging
+    solvers:
+    - dns01:
+        # Using external-dns solver for NS1 - requires cert-manager-webhook-ns1
+        webhook:
+          groupName: acme.nsone.net
+          solverName: ns1
+          config:
+            apiKeySecretRef:
+              name: ns1-credentials
+              key: apiKey
+            endpoint: "https://api.nsone.net/v1/"
+            ignoreSSL: false
+---
+# ClusterIssuer for Let's Encrypt production with DNS-01 challenge  
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: diego@iaconelli.org
+    privateKeySecretRef:
+      name: letsencrypt-dns01-prod
+    solvers:
+    - dns01:
+        webhook:
+          groupName: acme.nsone.net
+          solverName: ns1
+          config:
+            apiKeySecretRef:
+              name: ns1-credentials
+              key: apiKey
+            endpoint: "https://api.nsone.net/v1/"
+            ignoreSSL: false

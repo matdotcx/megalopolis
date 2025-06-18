@@ -30,6 +30,21 @@ kubeconfig
 *.swo
 *~
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+
+# Test reports
+*test-report-*.txt
+*integration-test-report-*.txt
+
 # IDE
 .idea/
 .vscode/
@@ -50,3 +65,4 @@ kubectl
 *.dSYM/
 *.so
 *.dylib
+# NS1 API Key for Let's Encrypt DNS-01

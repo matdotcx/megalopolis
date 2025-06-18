@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: megalopolis-dns01-staging
+  namespace: default
+spec:
+  secretName: megalopolis-dns01-staging
+  issuerRef:
+    name: letsencrypt-dns01-staging
+    kind: ClusterIssuer
+  commonName: megalopolis.iaconelli.org
+  dnsNames:
+  - megalopolis.iaconelli.org

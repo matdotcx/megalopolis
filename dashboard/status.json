@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-06-18T20:03:45Z",
+  "services": {
+    "docker": {"status": "healthy", "details": "Container runtime"},
+    "kind": {"status": "healthy", "details": "Kubernetes cluster"},
+    "kubectl": {"status": "healthy", "details": "Kubernetes client"},
+    "tart": {"status": "healthy", "details": "VM management"},
+    "argocd": {"status": "healthy", "details": "7 pods running"},
+    "orchard": {"status": "healthy", "details": "2 pods running"},
+    "certmanager": {"status": "warning", "details": "Namespace ready"},
+    "ingress": {"status": "warning", "details": "Namespace ready"},
+    "externalsecrets": {"status": "warning", "details": "Namespace ready"},
+    "monitoring": {"status": "warning", "details": "Namespace ready"},
+    "keycloak": {"status": "warning", "details": "Namespace ready"},
+    "network": {"status": "unhealthy", "details": "Docker networking"},
+    "macos-dev": {"status": "healthy", "details": "Ready"},
+    "macos-ci": {"status": "healthy", "details": "Ready"},
+    "total-vms": {"status": "healthy", "details": "2 running / 5 total"}
+  },
+  "summary": {
+    "healthy": 9,
+    "warning": 5,
+    "unhealthy": 1
+  }
+}

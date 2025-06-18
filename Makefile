@@ -234,13 +234,16 @@ launch-dashboard: ## Launch dashboard after setup completion
 	@echo "  ⚠️  What needs attention"
 	@echo "  ❌ What's not working"
 	@echo ""
-	@echo "📊 Starting dashboard at http://localhost:8090"
-	@echo "🔄 Auto-refreshes every 30 seconds"
-	@echo "⏹️  Press Ctrl+C to stop when you're done reviewing"
-	@echo ""
-	@sleep 2
-	@if command -v open >/dev/null 2>&1; then \
+	@echo "🔍 Checking for port conflicts..."
+	@DASHBOARD_PORT=$$(bash -c 'check_port_available() { if lsof -Pi :$$1 -sTCP:LISTEN -t >/dev/null 2>&1; then return 1; else return 0; fi; }; check_kind_conflicts() { if [[ "$$1" == "8080" ]] || [[ "$$1" == "8443" ]]; then return 1; fi; return 0; }; port=8090; if ! check_kind_conflicts $$port || ! check_port_available $$port; then port=8091; fi; if ! check_port_available $$port; then port=$$((9000 + RANDOM % 1000)); fi; echo $$port'); \
+	echo "📊 Starting dashboard at http://localhost:$$DASHBOARD_PORT"; \
+	echo "🔄 Auto-refreshes every 30 seconds"; \
+	echo "⏹️  Press Ctrl+C to stop when you're done reviewing"; \
+	echo ""; \
+	sleep 2; \
+	if command -v open >/dev/null 2>&1; then \
 		echo "🌐 Opening browser..."; \
-		(sleep 3 && open http://localhost:8090) & \
-	fi
-	@python3 dashboard/server.py
+		(sleep 3 && open http://localhost:$$DASHBOARD_PORT) & \
+	fi; \
+	DASHBOARD_PORT=$$DASHBOARD_PORT python3 dashboard/server.py
+
