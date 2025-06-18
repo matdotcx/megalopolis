@@ -29,12 +29,14 @@ class MegalopolisStatusHandler(http.server.SimpleHTTPRequestHandler):
     def handle_status_api(self):
         """Handle API request for status data"""
         try:
-            # Run the status script
+            # Run the status script from project root directory
             script_path = self.dashboard_dir / 'status-api.sh'
+            project_root = self.dashboard_dir.parent
             result = subprocess.run([str(script_path)], 
                                   capture_output=True, 
                                   text=True, 
-                                  timeout=30)
+                                  timeout=30,
+                                  cwd=str(project_root))
             
             if result.returncode == 0:
                 # Parse and validate JSON
@@ -44,7 +46,9 @@ class MegalopolisStatusHandler(http.server.SimpleHTTPRequestHandler):
                 except json.JSONDecodeError as e:
                     self.send_error_response(f"Invalid JSON from status script: {e}")
             else:
-                self.send_error_response(f"Status script failed: {result.stderr}")
+                error_msg = f"Status script failed (code {result.returncode}): stdout={result.stdout}, stderr={result.stderr}"
+                print(f"DEBUG: {error_msg}")  # Add debug logging
+                self.send_error_response(error_msg)
                 
         except subprocess.TimeoutExpired:
             self.send_error_response("Status check timed out")
