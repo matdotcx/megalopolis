@@ -181,7 +181,7 @@ start_vm() {
     fi
     
     log_info "Starting VM: $vm_name"
-    if "$TART_BIN" run "$vm_name" --no-graphics >/dev/null 2>&1 &
+    if "$TART_BIN" run "$vm_name" >/dev/null 2>&1 &
     then
         log_info "VM '$vm_name' started successfully"
         

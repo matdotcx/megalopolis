@@ -207,7 +207,7 @@ class MinimalVMAPIHandler(BaseHTTPRequestHandler):
             # Start the VM in background (async)
             try:
                 subprocess.Popen(
-                    [tart_bin, "run", vm_name, "--no-audio", "--no-graphics"],
+                    [tart_bin, "run", vm_name],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
