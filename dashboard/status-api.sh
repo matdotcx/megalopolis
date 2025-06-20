@@ -113,21 +113,18 @@ generate_status() {
         echo '    "ingress-nginx": {"status": "unhealthy", "details": "Namespace not found"},'
     fi
     
-    # Network - check for kind networks
-    if command -v docker >/dev/null 2>&1; then
-        if docker network ls 2>/dev/null | grep -q kind; then
+    # Network - check Docker networking functionality
+    network_status="unhealthy"
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        # Docker is working, check if we can list networks
+        if docker network ls >/dev/null 2>&1; then
             network_status="healthy"
-        else
-            network_status="unhealthy"
         fi
-    elif [ -x "/opt/local/bin/docker" ]; then
-        if /opt/local/bin/docker network ls 2>/dev/null | grep -q kind; then
+    elif [ -x "/opt/local/bin/docker" ] && /opt/local/bin/docker info >/dev/null 2>&1; then
+        # MacPorts Docker is working, check if we can list networks  
+        if /opt/local/bin/docker network ls >/dev/null 2>&1; then
             network_status="healthy"
-        else
-            network_status="unhealthy"
         fi
-    else
-        network_status="unhealthy"
     fi
     echo '    "network": {"status": "'${network_status}'", "details": "Docker networking"},'
     
