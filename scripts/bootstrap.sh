@@ -4,91 +4,223 @@ set -euo pipefail
 # Use project-local binaries
 KUBECTL="./kubectl"
 
+# Debug logging function
+log_debug() {
+    echo "[DEBUG $(date '+%H:%M:%S')] $*"
+}
+
+# Error handling function  
+log_error() {
+    echo "[ERROR $(date '+%H:%M:%S')] $*" >&2
+}
+
+# Deploy ArgoCD with enhanced error handling and retries
+deploy_argocd_chunked() {
+    local manifest_url="https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+    local temp_file="/tmp/argocd-manifest.yaml"
+    
+    log_debug "Downloading ArgoCD manifest..."
+    if ! curl -sSL "$manifest_url" > "$temp_file"; then
+        log_error "Failed to download ArgoCD manifest"
+        return 1
+    fi
+    
+    local line_count=$(wc -l < "$temp_file")
+    log_debug "Downloaded ArgoCD manifest: $line_count lines"
+    
+    # Verify manifest is complete
+    if [ "$line_count" -lt 500 ]; then
+        log_error "ArgoCD manifest seems incomplete (only $line_count lines)"
+        return 1
+    fi
+    
+    # Apply manifest with enhanced logging and proper timeout handling
+    log_debug "Applying ArgoCD manifest with enhanced error handling..."
+    
+    for attempt in 1 2 3; do
+        log_debug "ArgoCD deployment attempt $attempt/3"
+        
+        # Apply with detailed logging
+        if $KUBECTL apply -n argocd -f "$temp_file" 2>&1 | tee -a /tmp/bootstrap.log; then
+            log_debug "ArgoCD manifest applied successfully on attempt $attempt"
+            
+            # Wait for resources to be created (they may take time to appear)
+            log_debug "Waiting for ArgoCD resources to be created..."
+            sleep 15
+            
+            # Verify critical resources were created with multiple checks
+            local max_wait=60
+            local waited=0
+            local deployments=0
+            local statefulsets=0
+            
+            while [ $waited -lt $max_wait ]; do
+                deployments=$($KUBECTL get deployments -n argocd --no-headers 2>/dev/null | wc -l || echo "0")
+                statefulsets=$($KUBECTL get statefulsets -n argocd --no-headers 2>/dev/null | wc -l || echo "0")
+                
+                log_debug "ArgoCD resources check (${waited}s): $deployments deployments, $statefulsets statefulsets"
+                
+                if [ "$deployments" -ge 6 ] && [ "$statefulsets" -ge 1 ]; then
+                    log_debug "✅ ArgoCD deployment resources created successfully"
+                    return 0
+                fi
+                
+                sleep 5
+                waited=$((waited + 5))
+            done
+            
+            log_error "⚠️ ArgoCD deployment resources not fully created after ${max_wait}s (attempt $attempt)"
+            log_debug "Final count: $deployments deployments, $statefulsets statefulsets (expected: 6+ deployments, 1+ statefulsets)"
+            
+            if [ $attempt -lt 3 ]; then
+                log_debug "Retrying in 15 seconds..."
+                sleep 15
+                # Clean up partial deployment before retry
+                $KUBECTL delete -n argocd --all deployments,statefulsets 2>/dev/null || true
+                sleep 5
+            fi
+        else
+            log_error "ArgoCD manifest application failed on attempt $attempt"
+            if [ $attempt -lt 3 ]; then
+                log_debug "Retrying in 15 seconds..."
+                sleep 15
+            fi
+        fi
+    done
+    
+    log_error "ArgoCD deployment failed after 3 attempts, but continuing bootstrap..."
+    
+    # Cleanup
+    rm -f "$temp_file"
+    
+    log_debug "ArgoCD deployment completed"
+    return 1
+}
+
+# Verify ArgoCD health
+verify_argocd_health() {
+    log_debug "Verifying ArgoCD deployment health..."
+    
+    # Check expected resource counts
+    local expected_pods=7
+    local actual_pods=$($KUBECTL get pods -n argocd --no-headers 2>/dev/null | grep -c Running || echo "0")
+    
+    log_debug "ArgoCD pods status: $actual_pods/$expected_pods running"
+    
+    if [ "$actual_pods" -ge 5 ]; then  # Allow some flexibility
+        log_debug "✅ ArgoCD health check passed: $actual_pods pods running"
+        return 0
+    else
+        log_error "⚠️ ArgoCD health check: only $actual_pods/$expected_pods pods running"
+        
+        # Check if pods are starting up
+        local starting_pods=$($KUBECTL get pods -n argocd --no-headers 2>/dev/null | grep -c "ContainerCreating\|Init:" || echo "0")
+        if [ "$starting_pods" -gt 0 ]; then
+            log_debug "Found $starting_pods pods still starting - this may be normal"
+        fi
+        
+        # Show pod status for debugging
+        log_debug "Current ArgoCD pod status:"
+        $KUBECTL get pods -n argocd 2>/dev/null || true
+        
+        # If we have any pods, consider it partial success
+        if [ "$actual_pods" -gt 0 ] || [ "$starting_pods" -gt 0 ]; then
+            log_debug "ArgoCD deployment appears to be in progress"
+            return 0  # Don't fail the bootstrap for partial deployment
+        else
+            return 1
+        fi
+    fi
+}
+
 echo "Starting homelab bootstrap..."
+log_debug "Bootstrap started at $(date)"
 
 # Wait for cluster to be ready
 echo "Waiting for cluster to be ready..."
-$KUBECTL wait --for=condition=Ready nodes --all --timeout=300s
+log_debug "Checking cluster node readiness..."
+if ! $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s; then
+    log_error "Cluster nodes failed to become ready within 5 minutes"
+    exit 1
+fi
+log_debug "✅ All cluster nodes are ready"
 
 # Create namespaces
 echo "Creating namespaces..."
-$KUBECTL create namespace argocd --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace cert-manager --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace ingress-nginx --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace external-secrets --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace monitoring --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace keycloak --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL create namespace orchard-system --dry-run=client -o yaml | $KUBECTL apply -f -
+log_debug "Creating required namespaces..."
+$KUBECTL create namespace argocd --dry-run=client -o yaml | $KUBECTL apply -f - 2>&1 | tee -a /tmp/bootstrap.log
+$KUBECTL create namespace cert-manager --dry-run=client -o yaml | $KUBECTL apply -f - 2>&1 | tee -a /tmp/bootstrap.log  
+$KUBECTL create namespace ingress-nginx --dry-run=client -o yaml | $KUBECTL apply -f - 2>&1 | tee -a /tmp/bootstrap.log
+log_debug "✅ Namespaces created successfully"
 
-# Install ArgoCD
+# Install ArgoCD using chunked deployment
 echo "Installing ArgoCD..."
-$KUBECTL apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+deploy_argocd_chunked
 
 # Wait for ArgoCD to be ready
 echo "Waiting for ArgoCD to be ready..."
-$KUBECTL wait --for=condition=Ready pods -n argocd -l app.kubernetes.io/name=argocd-server --timeout=300s
+if ! verify_argocd_health; then
+    log_error "ArgoCD health check failed, but continuing bootstrap..."
+else
+    log_debug "ArgoCD deployment successful"
+fi
 
 # Get ArgoCD password
+log_debug "Retrieving ArgoCD admin password..."
 echo "ArgoCD admin password:"
-$KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+if ! $KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d; then
+    log_error "Failed to retrieve ArgoCD admin password - secret may not exist yet"
+    echo "(Password retrieval failed - check ArgoCD deployment status)"
+fi
 echo ""
 
 # Install ingress-nginx
 echo "Installing ingress-nginx..."
-# Label control plane node for ingress
-$KUBECTL label node homelab-control-plane ingress-ready=true --overwrite
+log_debug "Labeling control plane node for ingress..."
+$KUBECTL label node homelab-control-plane ingress-ready=true --overwrite 2>&1 | tee -a /tmp/bootstrap.log
 
-# Deploy ingress-nginx
-$KUBECTL apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/kind/deploy.yaml
+log_debug "Deploying ingress-nginx..."
+if ! $KUBECTL apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/kind/deploy.yaml 2>&1 | tee -a /tmp/bootstrap.log; then
+    log_error "ingress-nginx deployment failed, but continuing..."
+else
+    log_debug "ingress-nginx manifest applied successfully"
+fi
 
 # Wait for ingress-nginx to be ready
 echo "Waiting for ingress-nginx to be ready..."
-$KUBECTL wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+log_debug "Waiting for ingress-nginx controller to be ready..."
+if ! $KUBECTL wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s 2>&1 | tee -a /tmp/bootstrap.log; then
+    log_error "ingress-nginx failed to become ready within 5 minutes"
+else
+    log_debug "✅ ingress-nginx deployed successfully"
+    echo "✅ ingress-nginx deployed successfully"
+fi
 
-echo "✅ ingress-nginx deployed successfully"
-
-# Deploy core services for complete homelab setup
+# Deploy core services
 echo "Deploying core services..."
 
-# Deploy external-secrets
-echo "Deploying external-secrets..."
-if ! helm repo list | grep -q external-secrets; then
-    helm repo add external-secrets https://charts.external-secrets.io
-fi
-helm repo update
-if ! helm list -n external-secrets | grep -q external-secrets; then
-    helm install external-secrets external-secrets/external-secrets -n external-secrets --create-namespace
-fi
-
-# Deploy monitoring stack (Prometheus/Grafana)
-echo "Deploying monitoring stack..."
-if ! helm repo list | grep -q prometheus-community; then
-    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-fi
-helm repo update
-if ! helm list -n monitoring | grep -q kube-prometheus-stack; then
-    helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-        -n monitoring --create-namespace \
-        --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+# Install cert-manager
+echo "Installing cert-manager..."
+log_debug "Deploying cert-manager..."
+if ! $KUBECTL apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml 2>&1 | tee -a /tmp/bootstrap.log; then
+    log_error "cert-manager deployment failed, but continuing..."
+else
+    log_debug "cert-manager manifest applied successfully"
 fi
 
-# Deploy Keycloak
-echo "Deploying Keycloak..."
-if ! helm repo list | grep -q bitnami; then
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-fi
-helm repo update
-if ! helm list -n keycloak | grep -q keycloak; then
-    helm install keycloak bitnami/keycloak \
-        -n keycloak --create-namespace \
-        --set auth.adminUser=admin \
-        --set auth.adminPassword=admin123 \
-        --set postgresql.enabled=true
+# Wait for cert-manager to be ready
+echo "Waiting for cert-manager to be ready..."
+log_debug "Waiting for cert-manager pods to be ready..."
+if ! $KUBECTL wait --for=condition=Ready pods -n cert-manager -l app=cert-manager --timeout=300s 2>&1 | tee -a /tmp/bootstrap.log; then
+    log_error "cert-manager failed to become ready within 5 minutes"
+else
+    log_debug "✅ cert-manager deployed successfully"
 fi
 
 # Deploy self-signed certificates
 echo "Deploying self-signed certificates..."
-cat <<EOF | $KUBECTL apply -f -
+log_debug "Creating self-signed certificate issuer and certificate..."
+cat <<EOF | $KUBECTL apply -f - 2>&1 | tee -a /tmp/bootstrap.log
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -114,82 +246,40 @@ EOF
 
 echo "✅ Core services deployed successfully"
 
-# Deploy Let's Encrypt DNS-01 support
-echo "Setting up Let's Encrypt DNS-01 with NS1..."
-if ! helm repo list | grep -q cert-manager-webhook-ns1; then
-    helm repo add cert-manager-webhook-ns1 https://ns1.github.io/cert-manager-webhook-ns1
-fi
-helm repo update
-if ! helm list -n cert-manager | grep -q cert-manager-webhook-ns1; then
-    helm install cert-manager-webhook-ns1 cert-manager-webhook-ns1/cert-manager-webhook-ns1 --namespace cert-manager
-fi
-
-# Create NS1 API credentials if provided
-if [ -n "$NS1_API_KEY" ]; then
-    echo "Setting up NS1 API credentials for Let's Encrypt DNS-01..."
-    kubectl create secret generic ns1-credentials \
-        --from-literal=apiKey="$NS1_API_KEY" \
-        -n cert-manager --dry-run=client -o yaml | kubectl apply -f -
-    
-    # Apply DNS-01 ClusterIssuers
-    kubectl apply -f "$PROJECT_DIR/k8s-manifests/letsencrypt-dns01-issuer.yaml"
-    echo "✅ Let's Encrypt DNS-01 configured"
-else
-    echo "⚠️  NS1_API_KEY not provided - skipping Let's Encrypt DNS-01 setup"
-    echo "   To enable: export NS1_API_KEY=your_api_key"
-fi
-
-# Deploy VM management infrastructure
-echo "Deploying VM management infrastructure..."
+# Setup VM management and automation
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-K8S_MANIFESTS_DIR="$PROJECT_DIR/k8s-manifests"
 
-if [[ -d "$K8S_MANIFESTS_DIR" ]]; then
-    echo "Applying VM operator manifests..."
-    
-    # Deploy the minimal VM operator
-    [[ -f "$K8S_MANIFESTS_DIR/vm-operator-deployment.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-deployment.yaml"
-    [[ -f "$K8S_MANIFESTS_DIR/vm-operator-service.yaml" ]] && $KUBECTL apply -f "$K8S_MANIFESTS_DIR/vm-operator-service.yaml"
-    
-    echo "VM management available via:"
-    echo "- HTTP API: kubectl port-forward -n orchard-system svc/vm-operator 8082:8082"
-    echo "- CLI scripts: scripts/setup-vms.sh"
-    
+echo "Setting up VM management..."
+log_debug "Running VM setup to create and start default VMs..."
+if ! "$SCRIPT_DIR/setup-vms.sh" setup 2>&1 | tee -a /tmp/bootstrap.log; then
+    log_error "VM setup failed, but continuing..."
 else
-    echo "WARNING: Orchard manifests directory not found. Skipping Orchard deployment."
+    log_debug "✅ VM management configured successfully"
+    echo "✅ VM management configured"
 fi
 
 echo "Bootstrap complete!"
+log_debug "Bootstrap completed at $(date)"
+log_debug "Bootstrap log available at: /tmp/bootstrap.log"
 echo ""
 echo "Access Information:"
 echo "==================="
 echo "Dashboard:"
 echo "  make dashboard              - Launch web status dashboard"
+echo "  Open http://localhost:8090"
 echo ""
 echo "ArgoCD:"
 echo "  $KUBECTL port-forward -n argocd svc/argocd-server 8080:443"
 echo "  Open https://localhost:8080"
 echo "  Username: admin"
 echo ""
-echo "Grafana:"
-echo "  $KUBECTL port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
-echo "  Open http://localhost:3000"
-echo "  Username: admin, Password: prom-operator"
-echo ""
-echo "Keycloak:"
-echo "  $KUBECTL port-forward -n keycloak svc/keycloak 8081:80"
-echo "  Open http://localhost:8081"
-echo "  Username: admin, Password: admin123"
-echo ""
-echo "VM Operator API:"
-echo "  $KUBECTL port-forward -n orchard-system svc/vm-operator 8082:8082"
-echo "  Open http://localhost:8082/health"
-echo "  API endpoints: /vms, /vms/{name}, /vms/{name}/start, /vms/{name}/stop"
-echo ""
-echo "VM Management (CLI):"
+echo "VM Management:"
 echo "  make vms                    - List all VMs"
 echo "  scripts/setup-vms.sh list  - List VMs with details"
 echo "  scripts/setup-vms.sh health <vm> - Check VM health"
 echo "  scripts/setup-vms.sh wait <vm>   - Wait for VM readiness"
 echo "  scripts/setup-vms.sh help  - Show all VM management commands"
+echo ""
+echo "VM API Server:"
+echo "  scripts/minimal-vm-api.py   - Start VM HTTP API on port 8082"

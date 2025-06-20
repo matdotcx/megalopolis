@@ -75,7 +75,7 @@ generate_status() {
     echo '  "services": {'
     
     # Infrastructure
-    docker_status=$(check_service_status "docker" "docker info")
+    docker_status=$(check_service_status "docker" "/opt/local/bin/docker info")
     echo '    "docker": {"status": "'${docker_status}'", "details": "Container runtime"},'
     
     kind_status=$(check_service_status "kind" "${KIND} get clusters | grep -q homelab")
@@ -96,47 +96,39 @@ generate_status() {
         echo '    "argocd": {"status": "unhealthy", "details": "Namespace not found"},'
     fi
     
-    if ${KUBECTL} get namespace orchard-system &>/dev/null; then
-        orchard_status=$(check_namespace_pods "orchard-system")
-        orchard_pods=$(${KUBECTL} get pods -n orchard-system --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
-        echo '    "orchard": {"status": "'${orchard_status}'", "details": "'${orchard_pods}' pods running"},'
-    else
-        echo '    "orchard": {"status": "unhealthy", "details": "Namespace not found"},'
-    fi
-    
-    # Support services (namespace-only checks)
-    certmanager_status="unhealthy"
+    # Core Kubernetes Services
     if ${KUBECTL} get namespace cert-manager &>/dev/null; then
-        certmanager_status="warning"  # Namespace exists but no pods expected yet
+        certmanager_status=$(check_namespace_pods "cert-manager")
+        certmanager_pods=$(${KUBECTL} get pods -n cert-manager --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
+        echo '    "cert-manager": {"status": "'${certmanager_status}'", "details": "'${certmanager_pods}' pods running"},'
+    else
+        echo '    "cert-manager": {"status": "unhealthy", "details": "Namespace not found"},'
     fi
-    echo '    "certmanager": {"status": "'${certmanager_status}'", "details": "Namespace ready"},'
     
-    ingress_status="unhealthy"
     if ${KUBECTL} get namespace ingress-nginx &>/dev/null; then
-        ingress_status="warning"  # Namespace exists but no pods expected yet
+        ingress_status=$(check_namespace_pods "ingress-nginx")
+        ingress_pods=$(${KUBECTL} get pods -n ingress-nginx --no-headers 2>/dev/null | grep "Running" | wc -l | xargs)
+        echo '    "ingress-nginx": {"status": "'${ingress_status}'", "details": "'${ingress_pods}' pods running"},'
+    else
+        echo '    "ingress-nginx": {"status": "unhealthy", "details": "Namespace not found"},'
     fi
-    echo '    "ingress": {"status": "'${ingress_status}'", "details": "Namespace ready"},'
     
-    externalsecrets_status="unhealthy"
-    if ${KUBECTL} get namespace external-secrets &>/dev/null; then
-        externalsecrets_status="warning"  # Namespace exists but no pods expected yet
+    # Network - check for kind networks
+    if command -v docker >/dev/null 2>&1; then
+        if docker network ls 2>/dev/null | grep -q kind; then
+            network_status="healthy"
+        else
+            network_status="unhealthy"
+        fi
+    elif [ -x "/opt/local/bin/docker" ]; then
+        if /opt/local/bin/docker network ls 2>/dev/null | grep -q kind; then
+            network_status="healthy"
+        else
+            network_status="unhealthy"
+        fi
+    else
+        network_status="unhealthy"
     fi
-    echo '    "externalsecrets": {"status": "'${externalsecrets_status}'", "details": "Namespace ready"},'
-    
-    monitoring_status="unhealthy"
-    if ${KUBECTL} get namespace monitoring &>/dev/null; then
-        monitoring_status="warning"  # Namespace exists but no pods expected yet
-    fi
-    echo '    "monitoring": {"status": "'${monitoring_status}'", "details": "Namespace ready"},'
-    
-    keycloak_status="unhealthy"
-    if ${KUBECTL} get namespace keycloak &>/dev/null; then
-        keycloak_status="warning"  # Namespace exists but no pods expected yet
-    fi
-    echo '    "keycloak": {"status": "'${keycloak_status}'", "details": "Namespace ready"},'
-    
-    # Network
-    network_status=$(check_service_status "network" "docker network ls | grep -q kind")
     echo '    "network": {"status": "'${network_status}'", "details": "Docker networking"},'
     
     # Virtual Machines with enhanced status
@@ -226,7 +218,7 @@ generate_status() {
     unhealthy_count=0
     
     # Count service statuses (this is a simplified count - in real implementation you'd parse the JSON)
-    for status in "${docker_status}" "${kind_status}" "${kubectl_status}" "${tart_status}" "${argocd_status}" "${orchard_status}" "${certmanager_status}" "${ingress_status}" "${externalsecrets_status}" "${monitoring_status}" "${keycloak_status}" "${network_status}" "${macos_dev_status}" "${macos_ci_status}" "${total_vms_status}"; do
+    for status in "${docker_status}" "${kind_status}" "${kubectl_status}" "${tart_status}" "${argocd_status}" "${certmanager_status}" "${ingress_status}" "${network_status}" "${macos_dev_status}" "${macos_ci_status}" "${total_vms_status}"; do
         case "${status}" in
             "healthy") ((healthy_count++)) ;;
             "warning") ((warning_count++)) ;;

@@ -224,24 +224,24 @@
                 </div>
                 <div class="service">
                     <div>
-                        <div class="service-name">Orchard Controller</div>
-                        <div class="service-details">VM orchestration</div>
-                    </div>
-                    <div class="status" id="orchard-status">⏳</div>
-                </div>
-                <div class="service">
-                    <div>
                         <div class="service-name">Cert Manager</div>
                         <div class="service-details">TLS certificates</div>
                     </div>
-                    <div class="status" id="certmanager-status">⏳</div>
+                    <div class="status" id="cert-manager-status">⏳</div>
                 </div>
                 <div class="service">
                     <div>
                         <div class="service-name">Ingress Nginx</div>
                         <div class="service-details">HTTP routing</div>
                     </div>
-                    <div class="status" id="ingress-status">⏳</div>
+                    <div class="status" id="ingress-nginx-status">⏳</div>
+                </div>
+                <div class="service">
+                    <div>
+                        <div class="service-name">Network</div>
+                        <div class="service-details">Docker networking</div>
+                    </div>
+                    <div class="status" id="network-status">⏳</div>
                 </div>
             </div>
             
@@ -267,38 +267,6 @@
                         <div class="service-details" id="vm-count">0 running</div>
                     </div>
                     <div class="status" id="total-vms-status">⏳</div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2>🔧 Support Services</h2>
-                <div class="service">
-                    <div>
-                        <div class="service-name">External Secrets</div>
-                        <div class="service-details">Secret management</div>
-                    </div>
-                    <div class="status" id="externalsecrets-status">⏳</div>
-                </div>
-                <div class="service">
-                    <div>
-                        <div class="service-name">Monitoring</div>
-                        <div class="service-details">Observability stack</div>
-                    </div>
-                    <div class="status" id="monitoring-status">⏳</div>
-                </div>
-                <div class="service">
-                    <div>
-                        <div class="service-name">Keycloak</div>
-                        <div class="service-details">Identity provider</div>
-                    </div>
-                    <div class="status" id="keycloak-status">⏳</div>
-                </div>
-                <div class="service">
-                    <div>
-                        <div class="service-name">Network</div>
-                        <div class="service-details">Docker networking</div>
-                    </div>
-                    <div class="status" id="network-status">⏳</div>
                 </div>
             </div>
         </div>
@@ -329,7 +297,7 @@
         let refreshInterval;
         
         function updateStatus() {
-            fetch('/status.json')
+            fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
                     // Update individual service statuses

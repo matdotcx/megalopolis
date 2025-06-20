@@ -1,21 +1,34 @@
-# Megalopolis Outstanding Issues & Resolution Plan
+# Megalopolis Status & Architecture
 
-**Status**: ✅ All outstanding issues resolved  
-**Date**: June 17, 2025  
-**Deployment State**: ✅ Fully operational and optimized
+**Status**: ✅ Simplified and operational  
+**Date**: June 19, 2025  
+**Deployment State**: ✅ Clean, reliable, and automated
 
 ## Current System Status
 
-### ✅ Successfully Deployed
+### ✅ Core Services (Simplified Architecture)
 - **Docker**: Running and healthy
 - **Kind Kubernetes Cluster**: 4 nodes operational
 - **ArgoCD**: 7 pods running, GitOps platform functional
-- **Virtual Machines**: 2 macOS VMs running (macos-dev: 192.168.64.5, macos-ci: 192.168.64.6)
+- **cert-manager**: 3 pods running, certificate management
+- **ingress-nginx**: 1 pod running, load balancing
+- **Virtual Machines**: 2 macOS VMs running with CLI management
 - **Status Dashboard**: Running at http://localhost:8090 with real-time monitoring
-- **All Core Services**: Infrastructure layer completely functional
 
-### ✅ Resolved Issues
-All three identified issues have been successfully resolved with comprehensive solutions.
+### ✅ Architectural Improvements
+All complex, unreliable components have been removed in favor of simple, working solutions.
+
+**Removed Complex Components:**
+- ❌ **Prometheus/Grafana monitoring stack** - Was causing ImagePullBackOff failures
+- ❌ **VM Operator Kubernetes deployment** - Fighting Kind container limitations  
+- ❌ **Keycloak identity provider** - Heavy, slow startup, unnecessary complexity
+- ❌ **external-secrets operator** - Added complexity without immediate value
+
+**Replaced With Simple Solutions:**
+- ✅ **CLI VM Management** - Direct `scripts/setup-vms.sh` integration
+- ✅ **Dashboard status monitoring** - Lightweight real-time status API
+- ✅ **Automated VM creation** - VMs created during `make init`
+- ✅ **Core K8s services only** - ArgoCD, cert-manager, ingress-nginx
 
 ## 🎉 Resolution Summary
 

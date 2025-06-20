@@ -50,25 +50,26 @@ make validate
 
 ## Architecture
 
-### Unified Homelab Environment
+### Simplified Homelab Architecture
 ```
 M3 Mac Host
 ├── Kind Cluster (Linux containers)
-│   ├── ArgoCD, cert-manager, ingress-nginx
-│   ├── Orchard controller (VM management)
-│   └── Applications and services
-├── Tart VMs (Native macOS/Linux VMs)
+│   ├── ArgoCD (GitOps)
+│   ├── cert-manager (TLS certificates)
+│   └── ingress-nginx (Load balancing)
+├── Tart VMs (Native macOS VMs)
 │   ├── macos-dev (Development environment)
-│   ├── macos-ci (CI/CD environment)
-│   └── Custom VMs as needed
+│   └── macos-ci (CI/CD environment)
+└── Dashboard (Status monitoring)
 ```
 
-### Components
+### Core Components
 - **Kubernetes**: Kind cluster with 4 nodes (1 control-plane, 3 workers)
-- **Container Runtime**: Colima or Docker Desktop (automatic detection)
-- **Virtual Machines**: Tart for native macOS and Linux VMs
-- **VM Management**: Orchard controller for unified VM orchestration
+- **Container Runtime**: Docker or Colima (automatic detection)
+- **Virtual Machines**: Tart for native macOS VMs with CLI management
+- **VM Management**: Direct CLI integration via `scripts/setup-vms.sh`
 - **GitOps**: ArgoCD for continuous deployment
+- **Monitoring**: Real-time dashboard at http://localhost:8090
 - **Tools**: kubectl v1.33.1, helm v3.18.2, kind v0.23.0, tart (latest)
 
 ## Accessing Services
@@ -87,22 +88,28 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 # Username: admin
 ```
 
-### Orchard Controller (VM Management)
+### Dashboard (Status Monitoring)
 ```bash
-# Port forward to Orchard
-kubectl port-forward -n orchard-system svc/orchard-controller 8081:8080
+# Launch dashboard
+make dashboard
 
-# Access VM management UI at http://localhost:8081
+# Access dashboard at http://localhost:8090
+# Shows real-time status of all services and VMs
 ```
 
 ### Virtual Machines
 ```bash
-# Connect to development VM
-make vm-connect VM_NAME=macos-dev
+# List all VMs
+make vms
 
-# Or use SSH directly
-ssh -p 2222 admin@localhost  # macos-dev
-ssh -p 2223 admin@localhost  # macos-ci
+# VM management via CLI
+scripts/setup-vms.sh list              # List VMs with status
+scripts/setup-vms.sh start <vm-name>   # Start a VM
+scripts/setup-vms.sh stop <vm-name>    # Stop a VM
+scripts/setup-vms.sh health <vm-name>  # Check VM health
+
+# VM API Server (optional)
+scripts/minimal-vm-api.py              # Start HTTP API on port 8082
 ```
 
 ## Project Structure

@@ -279,15 +279,28 @@ delete_vm() {
 setup_default_vms() {
     log_info "Setting up default VMs..."
     
-    for vm_config in "${DEFAULT_VMS[@]}"; do
-        local config_file="$TART_CONFIG_DIR/vm-configs/${vm_config}.yaml"
-        
-        if [[ -f "$config_file" ]]; then
-            create_vm "$config_file"
-            # Start the VM after creation
-            start_vm "$vm_config"
+    for vm_name in "${DEFAULT_VMS[@]}"; do
+        # Check if VM already exists
+        if vm_exists "$vm_name"; then
+            log_info "VM '$vm_name' already exists"
+            
+            # Start it if it's not running
+            local status=$(vm_status "$vm_name")
+            if [[ "$status" != "running" ]]; then
+                log_info "Starting existing VM: $vm_name"
+                start_vm "$vm_name"
+            else
+                log_info "VM '$vm_name' is already running"
+            fi
         else
-            log_warn "Configuration file not found: $config_file"
+            # Create VM directly from base image
+            log_info "Creating VM: $vm_name"
+            if "$TART_BIN" clone "ghcr.io/cirruslabs/macos-sequoia-base:latest" "$vm_name" 2>/dev/null; then
+                log_info "VM '$vm_name' created successfully"
+                start_vm "$vm_name"
+            else
+                log_warn "Failed to create VM '$vm_name' - base image may need to be pulled first"
+            fi
         fi
     done
     
