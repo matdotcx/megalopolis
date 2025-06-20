@@ -51,13 +51,6 @@ check_tart() {
     fi
 }
 
-# Parse YAML config (simple grep-based parser)
-get_yaml_value() {
-    local file="$1"
-    local key="$2"
-    grep -E "^${key}:" "$file" | sed -E 's/^[^:]+:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/' | head -1
-}
-
 # Check if VM exists
 vm_exists() {
     local vm_name="$1"
@@ -74,31 +67,10 @@ vm_status() {
     fi
 }
 
-# Create VM from configuration
-create_vm() {
-    local config_file="$1"
-    local vm_name
-    local base_image
-    local memory
-    local disk
-    local cpu
-    
-    if [[ ! -f "$config_file" ]]; then
-        log_error "Configuration file not found: $config_file"
-        return 1
-    fi
-    
-    # Parse configuration
-    vm_name=$(get_yaml_value "$config_file" "name")
-    base_image=$(get_yaml_value "$config_file" "base_image")
-    memory=$(get_yaml_value "$config_file" "memory" || echo "4096")
-    disk=$(get_yaml_value "$config_file" "disk" || echo "40")
-    cpu=$(get_yaml_value "$config_file" "cpu" || echo "2")
-    
-    if [[ -z "$vm_name" ]]; then
-        log_error "VM name not found in configuration file"
-        return 1
-    fi
+# Create VM directly from base image
+create_vm_direct() {
+    local vm_name="$1"
+    local base_image="${2:-ghcr.io/cirruslabs/macos-sequoia-base:latest}"
     
     log_info "Creating VM: $vm_name"
     
@@ -108,50 +80,11 @@ create_vm() {
         return 0
     fi
     
-    # Get base image source from base-images.yaml
-    local base_images_file="$TART_CONFIG_DIR/base-images.yaml"
-    local image_source
-    
-    if [[ -f "$base_images_file" ]]; then
-        # Look for the base image configuration
-        image_source=$(awk -v img="$base_image" '
-            /^[[:space:]]*[^#].*:$/ { current_section = $1; gsub(/:$/, "", current_section) }
-            current_section == img && /source:/ { 
-                gsub(/^[[:space:]]*source:[[:space:]]*"?/, "")
-                gsub(/"?[[:space:]]*$/, "")
-                print
-                exit
-            }
-        ' "$base_images_file")
-    fi
-    
-    # Default to GitHub registry if not found
-    if [[ -z "$image_source" ]]; then
-        case "$base_image" in
-            "macos-sequoia")
-                image_source="ghcr.io/cirruslabs/macos-sequoia-base:latest"
-                ;;
-            "ubuntu-jammy")
-                image_source="ghcr.io/cirruslabs/ubuntu:jammy"
-                ;;
-            *)
-                log_error "Unknown base image: $base_image"
-                return 1
-                ;;
-        esac
-    fi
-    
-    log_info "Using base image: $image_source"
+    log_info "Using base image: $base_image"
     
     # Create the VM
-    if "$TART_BIN" clone "$image_source" "$vm_name" 2>/dev/null; then
+    if "$TART_BIN" clone "$base_image" "$vm_name" 2>/dev/null; then
         log_info "VM '$vm_name' created successfully"
-        
-        # Configure VM resources if needed
-        # Note: Tart resource configuration may require different commands
-        # This is a placeholder for resource configuration
-        log_info "VM configuration completed"
-        
         return 0
     else
         log_error "Failed to create VM '$vm_name'"
@@ -325,7 +258,7 @@ show_usage() {
     echo "Commands:"
     echo "  setup          Setup default VMs"
     echo "  list           List all VMs"
-    echo "  create <name> <config>  Create VM from config file"
+    echo "  create <name> [image]   Create VM from base image"
     echo "  start <name> [wait]     Start VM (wait=true/false for readiness check)"
     echo "  stop <name>    Stop VM"
     echo "  delete <name>  Delete VM"
@@ -337,7 +270,7 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $0 setup"
-    echo "  $0 create my-vm macos-dev.yaml"
+    echo "  $0 create my-vm ghcr.io/cirruslabs/macos-sequoia-base:latest"
     echo "  $0 start macos-dev true     # Start and wait for readiness"
     echo "  $0 wait macos-dev 600       # Wait up to 10 minutes for VM"
     echo "  $0 health macos-dev         # Check VM health"
@@ -359,16 +292,12 @@ main() {
             list_vms
             ;;
         "create")
-            if [[ $# -lt 3 ]]; then
-                log_error "Usage: $0 create <vm_name> <config_file>"
+            if [[ $# -lt 2 ]]; then
+                log_error "Usage: $0 create <vm_name> [base_image]"
                 exit 1
             fi
             
-            local vm_name="$2"
-            local config_name="$3"
-            local config_file="$TART_CONFIG_DIR/vm-configs/$config_name"
-            
-            create_vm "$config_file"
+            create_vm_direct "$2" "${3:-}"
             ;;
         "start")
             if [[ $# -lt 2 ]]; then

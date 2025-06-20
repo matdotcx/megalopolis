@@ -1,8 +1,0 @@
-# Ignore everything except what we explicitly need
-*
-
-# Include only the minimal VM API script
-!../../scripts/minimal-vm-api.py
-
-# Include tart binary (will be mounted at runtime)
-!../../tart-binary

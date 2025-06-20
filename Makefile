@@ -33,7 +33,8 @@ init: ## Initialize the homelab environment (Kind cluster + Tart VMs)
 	EXIT_CODE=$$?; \
 	if [ $$EXIT_CODE -eq 0 ]; then \
 		make setup-vms; \
-		make launch-dashboard; \
+		make dashboard-ensure; \
+		echo "🎉 Homelab is ready! Dashboard: http://localhost:8090"; \
 	elif [ $$EXIT_CODE -eq 1 ]; then \
 		exit 1; \
 	elif [ $$EXIT_CODE -eq 2 ]; then \
@@ -210,18 +211,20 @@ monitoring: ## Start continuous monitoring (runs in background)
 	@echo "To stop: pkill -f 'megalopolis.*monitoring'"
 	@echo "View logs: tail -f /tmp/megalopolis-status.log"
 
-dashboard: ## Start the web status dashboard
-	@echo "🏙️  Starting Megalopolis Status Dashboard..."
-	@echo "📊 Dashboard will be available at http://localhost:8090"
-	@echo "⏹️  Press Ctrl+C to stop"
-	@python3 dashboard/server.py
+dashboard: ## Start the web status dashboard (persistent service)
+	@./scripts/start-dashboard.sh start
 
-dashboard-bg: ## Start dashboard in background
-	@echo "🏙️  Starting Megalopolis Status Dashboard in background..."
-	@nohup python3 dashboard/server.py > /tmp/megalopolis-dashboard.log 2>&1 &
-	@echo "📊 Dashboard running at http://localhost:8090"
-	@echo "📝 Logs: tail -f /tmp/megalopolis-dashboard.log"
-	@echo "⏹️  To stop: pkill -f 'dashboard/server.py'"
+dashboard-stop: ## Stop the dashboard service
+	@./scripts/start-dashboard.sh stop
+
+dashboard-restart: ## Restart the dashboard service
+	@./scripts/start-dashboard.sh restart
+
+dashboard-status: ## Check dashboard service status
+	@./scripts/start-dashboard.sh status
+
+dashboard-ensure: ## Ensure dashboard is running (start if needed)
+	@./scripts/start-dashboard.sh ensure
 
 launch-dashboard: ## Launch dashboard after setup completion
 	@echo ""
@@ -234,16 +237,14 @@ launch-dashboard: ## Launch dashboard after setup completion
 	@echo "  ⚠️  What needs attention"
 	@echo "  ❌ What's not working"
 	@echo ""
-	@echo "🔍 Checking for port conflicts..."
-	@DASHBOARD_PORT=$$(bash -c 'check_port_available() { if lsof -Pi :$$1 -sTCP:LISTEN -t >/dev/null 2>&1; then return 1; else return 0; fi; }; check_kind_conflicts() { if [[ "$$1" == "8080" ]] || [[ "$$1" == "8443" ]]; then return 1; fi; return 0; }; port=8090; if ! check_kind_conflicts $$port || ! check_port_available $$port; then port=8091; fi; if ! check_port_available $$port; then port=$$((9000 + RANDOM % 1000)); fi; echo $$port'); \
-	echo "📊 Starting dashboard at http://localhost:$$DASHBOARD_PORT"; \
-	echo "🔄 Auto-refreshes every 30 seconds"; \
-	echo "⏹️  Press Ctrl+C to stop when you're done reviewing"; \
-	echo ""; \
-	sleep 2; \
-	if command -v open >/dev/null 2>&1; then \
+	@./scripts/start-dashboard.sh ensure
+	@echo "🔄 Auto-refreshes every 30 seconds"
+	@echo ""
+	@if command -v open >/dev/null 2>&1; then \
 		echo "🌐 Opening browser..."; \
-		(sleep 3 && open http://localhost:$$DASHBOARD_PORT) & \
-	fi; \
-	DASHBOARD_PORT=$$DASHBOARD_PORT python3 dashboard/server.py
+		(sleep 2 && open http://localhost:8090) & \
+	fi
+	@echo "📊 Dashboard is now running persistently at http://localhost:8090"
+	@echo "💡 Use 'make dashboard-status' to check status"
+	@echo "💡 Use 'make dashboard-stop' to stop the service"
 

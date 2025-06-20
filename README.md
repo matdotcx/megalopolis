@@ -89,12 +89,18 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 ```
 
 ### Dashboard (Status Monitoring)
+The dashboard runs as a persistent service and provides real-time monitoring:
+
 ```bash
-# Launch dashboard
-make dashboard
+# Dashboard service management
+make dashboard          # Start persistent dashboard service
+make dashboard-status   # Check if running
+make dashboard-restart  # Restart service
+make dashboard-stop     # Stop service
 
 # Access dashboard at http://localhost:8090
 # Shows real-time status of all services and VMs
+# Automatically starts with 'make init'
 ```
 
 ### Virtual Machines
